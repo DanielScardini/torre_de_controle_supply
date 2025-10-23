@@ -1,23 +1,28 @@
 # Databricks notebook source
-"""
-Processamento de Vendas - Camada Bronze
-=========================================
+# MAGIC %md
+# MAGIC # Processamento de Vendas - Camada Bronze
+# MAGIC
+# MAGIC Este notebook processa dados de vendas online e offline para a camada Bronze,
+# MAGIC seguindo o padrão Medallion Architecture e as melhores práticas Python.
+# MAGIC
+# MAGIC ## Funcionalidades
+# MAGIC
+# MAGIC - Processamento de vendas online e offline
+# MAGIC - Agregação por filial, SKU e data
+# MAGIC - Criação de grade completa de vendas
+# MAGIC - Salvamento na camada Bronze com metadados
+# MAGIC - Timezone São Paulo (GMT-3) para processamento
+# MAGIC
+# MAGIC ## Autor
+# MAGIC
+# MAGIC Torre de Controle Supply Chain - 2024
 
-Este notebook processa dados de vendas online e offline para a camada Bronze,
-seguindo o padrão Medallion Architecture e as melhores práticas Python.
+# COMMAND ----------
 
-## Funcionalidades
+# MAGIC %md
+# MAGIC ## 1. Imports e Configuração Inicial
 
-- Processamento de vendas online e offline
-- Agregação por filial, SKU e data
-- Criação de grade completa de vendas
-- Salvamento na camada Bronze com metadados
-- Timezone São Paulo (GMT-3) para processamento
-
-## Autor
-
-Torre de Controle Supply Chain - 2024
-"""
+# COMMAND ----------
 
 from datetime import datetime, timedelta, date
 from typing import Optional, Union
@@ -48,6 +53,11 @@ print(f"📅 Data de processamento: {hoje}")
 print(f"📝 Data string: {hoje_str}")
 print(f"🔢 Data int: {hoje_int}")
 print(f"🌍 Timezone: {TIMEZONE_SP}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 2. Função de Cálculo de Data de Início
 
 # COMMAND ----------
 
@@ -99,6 +109,11 @@ df_exemplo = spark.range(1).select(
     F.lit(90).alias("dias_retrocesso")
 )
 df_exemplo.show()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 3. Processamento de Vendas Offline
 
 # COMMAND ----------
 
@@ -251,6 +266,11 @@ print(f"🏪 DataFrame vendas offline criado com {vendas_offline_df.count()} reg
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## 4. Processamento de Vendas Online
+
+# COMMAND ----------
+
 def get_vendas_online(
     spark: SparkSession,
     start_date: int = data_inicio_int,
@@ -398,6 +418,11 @@ print(f"🌐 DataFrame vendas online criado com {vendas_online_df.count()} regis
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ## 5. Consolidação de Vendas Online e Offline
+
+# COMMAND ----------
+
 def consolidar_vendas_online_offline(
     vendas_offline_df: DataFrame,
     vendas_online_df: DataFrame
@@ -443,6 +468,11 @@ def consolidar_vendas_online_offline(
 # Executar consolidação
 vendas_consolidadas_df = consolidar_vendas_online_offline(vendas_offline_df, vendas_online_df)
 print(f"🔄 DataFrame consolidado criado com {vendas_consolidadas_df.count()} registros")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 6. Salvamento na Camada Bronze
 
 # COMMAND ----------
 
@@ -515,4 +545,27 @@ sucesso = salvar_tabela_bronze(vendas_consolidadas_df)
 if sucesso:
     print("🎉 Processamento de vendas Bronze concluído com sucesso!")
 else:
-    logger.error("💥 Falha no processamento de vendas Bronze!")
+    print("💥 Falha no processamento de vendas Bronze!")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## 📋 RESUMO FINAL DO PROCESSAMENTO
+# MAGIC
+# MAGIC ### **O que este notebook faz:**
+# MAGIC 1. **Processa vendas offline** (loja física) da tabela vendafaturadarateada
+# MAGIC 2. **Processa vendas online** (canais digitais) da mesma tabela
+# MAGIC 3. **Consolida ambos os canais** em um único DataFrame
+# MAGIC 4. **Salva na camada Bronze** com metadados de processamento
+# MAGIC 5. **Timezone São Paulo (GMT-3)** para processamento correto
+# MAGIC
+# MAGIC ### **Tabela criada:**
+# MAGIC - `databox.bcg_comum.supply_bronze_vendas_90d_on_off`
+# MAGIC
+# MAGIC ### **Características:**
+# MAGIC - **Período**: Últimos 90 dias configurável
+# MAGIC - **Grade completa**: Todas as combinações filial × SKU × data
+# MAGIC - **Metadados**: DataHoraProcessamento, FonteDados, VersaoProcessamento
+# MAGIC - **Canal identificado**: ONLINE ou OFFLINE
+# MAGIC
+# MAGIC **Este notebook está completo e pronto para execução!** 🎉
