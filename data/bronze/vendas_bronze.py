@@ -108,7 +108,7 @@ df_exemplo.show()
 # COMMAND ----------
 
 def get_vendas_offline(
-    spark_session: SparkSession,
+    spark: SparkSession,
     start_date: int = data_inicio_int,
     end_date: int = hoje_int,
 ) -> DataFrame:
@@ -116,7 +116,7 @@ def get_vendas_offline(
     Processa vendas offline (loja física) da tabela vendafaturadarateada.
     
     Args:
-        spark_session: Sessão do Spark
+        spark: Sessão do Spark
         start_date: Data de início no formato YYYYMMDD
         end_date: Data de fim no formato YYYYMMDD
         
@@ -133,7 +133,7 @@ def get_vendas_offline(
     
     # Carregar tabela de vendas rateadas (offline)
     df_rateada = (
-        spark_session.table("app_venda.vendafaturadarateada")
+        spark.table("app_venda.vendafaturadarateada")
         .filter(F.col("NmEstadoMercadoria") != '1 - SALDO')
         .filter(F.col("NmTipoNegocio") == 'LOJA FISICA')
         .filter(
@@ -147,7 +147,7 @@ def get_vendas_offline(
     
     # Carregar tabela de vendas não rateadas para quantidade
     df_nao_rateada = (
-        spark_session.table("app_venda.vendafaturadanaorateada")
+        spark.table("app_venda.vendafaturadanaorateada")
         .filter(F.col("QtMercadoria") >= 0)
     )
     
@@ -195,7 +195,7 @@ def get_vendas_offline(
     
     # Criar grade completa de datas
     cal = (
-        spark_session.range(1)
+        spark.range(1)
         .select(
             F.explode(
                 F.sequence(
@@ -257,7 +257,7 @@ logger.info(f"DataFrame vendas offline criado com {vendas_offline_df.count()} re
 # COMMAND ----------
 
 def get_vendas_online(
-    spark_session: SparkSession,
+    spark: SparkSession,
     start_date: int = data_inicio_int,
     end_date: int = hoje_int,
 ) -> DataFrame:
@@ -265,7 +265,7 @@ def get_vendas_online(
     Processa vendas online da tabela vendafaturadarateada.
     
     Args:
-        spark_session: Sessão do Spark
+        spark: Sessão do Spark
         start_date: Data de início no formato YYYYMMDD
         end_date: Data de fim no formato YYYYMMDD
         
@@ -282,7 +282,7 @@ def get_vendas_online(
     
     # Carregar tabela de vendas rateadas (online)
     df_rateada = (
-        spark_session.table("app_venda.vendafaturadarateada")
+        spark.table("app_venda.vendafaturadarateada")
         .filter(F.col("NmEstadoMercadoria") != '1 - SALDO')
         .filter(F.col("NmTipoNegocio") != 'LOJA FISICA')  # Excluir loja física
         .filter(
@@ -296,7 +296,7 @@ def get_vendas_online(
     
     # Carregar tabela de vendas não rateadas para quantidade
     df_nao_rateada = (
-        spark_session.table("app_venda.vendafaturadanaorateada")
+        spark.table("app_venda.vendafaturadanaorateada")
         .filter(F.col("QtMercadoria") >= 0)
     )
     
@@ -342,7 +342,7 @@ def get_vendas_online(
     
     # Criar grade completa de datas
     cal = (
-        spark_session.range(1)
+        spark.range(1)
         .select(
             F.explode(
                 F.sequence(
