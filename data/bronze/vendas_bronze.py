@@ -4,22 +4,27 @@ Processamento de Vendas - Camada Bronze
 =========================================
 
 Este notebook processa dados de vendas online e offline para a camada Bronze,
-seguindo o padrão Medallion Architecture.
+seguindo o padrão Medallion Architecture e as melhores práticas Python.
 
-Funcionalidades:
+## Funcionalidades
+
 - Processamento de vendas online e offline
 - Agregação por filial, SKU e data
 - Criação de grade completa de vendas
 - Salvamento na camada Bronze com metadados
+- Timezone São Paulo (GMT-3) para processamento
 
-Autor: Torre de Controle Supply Chain
-Data: 2024
+## Autor
+
+Torre de Controle Supply Chain - 2024
 """
 
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql import functions as F, Window
 from datetime import datetime, timedelta, date
-import pandas as pd
+from typing import Optional, Union
+import logging
+
+from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import functions as F
 from pytz import timezone
 
 # =============================================================================
@@ -27,10 +32,14 @@ from pytz import timezone
 # =============================================================================
 
 # Nome da tabela de destino na camada Bronze
-TABELA_BRONZE_VENDAS = "databox.bcg_comum.supply_bronze_vendas_90d_on_off"
+TABELA_BRONZE_VENDAS: str = "databox.bcg_comum.supply_bronze_vendas_90d_on_off"
 
 # Timezone São Paulo (GMT-3)
 TIMEZONE_SP = timezone('America/Sao_Paulo')
+
+# Configuração de logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Inicialização do Spark
 spark = SparkSession.builder.appName("vendas_bronze").getOrCreate()
@@ -40,16 +49,17 @@ hoje = datetime.now(TIMEZONE_SP) - timedelta(days=1)
 hoje_str = hoje.strftime("%Y-%m-%d")
 hoje_int = int(hoje.strftime("%Y%m%d"))
 
-print(f"Data de processamento: {hoje}")
-print(f"Data string: {hoje_str}")
-print(f"Data int: {hoje_int}")
-print(f"Timezone: {TIMEZONE_SP}")
+logger.info(f"Data de processamento: {hoje}")
+logger.info(f"Data string: {hoje_str}")
+logger.info(f"Data int: {hoje_int}")
+logger.info(f"Timezone: {TIMEZONE_SP}")
 
 # COMMAND ----------
 
-# COMMAND ----------
-
-def get_data_inicio(hoje: datetime | date | None = None, dias_retrocesso: int = 90) -> datetime:
+def get_data_inicio(
+    hoje: Optional[Union[datetime, date]] = None, 
+    dias_retrocesso: int = 90
+) -> datetime:
     """
     Retorna datetime de início baseado nos últimos N dias.
     
@@ -59,7 +69,13 @@ def get_data_inicio(hoje: datetime | date | None = None, dias_retrocesso: int = 
         
     Returns:
         datetime: Data de início no timezone São Paulo
+        
+    Raises:
+        ValueError: Se dias_retrocesso for negativo
     """
+    if dias_retrocesso < 0:
+        raise ValueError("dias_retrocesso deve ser positivo")
+    
     if hoje is None:
         hoje_dt = datetime.now(TIMEZONE_SP)
     elif isinstance(hoje, datetime):
@@ -70,16 +86,16 @@ def get_data_inicio(hoje: datetime | date | None = None, dias_retrocesso: int = 
     
     data_inicio = hoje_dt - timedelta(days=dias_retrocesso)
     
-    print(f"Data de início calculada: {data_inicio}")
-    print(f"Dias de retrocesso: {dias_retrocesso}")
+    logger.info(f"Data de início calculada: {data_inicio}")
+    logger.info(f"Dias de retrocesso: {dias_retrocesso}")
     
     return data_inicio
 
 # Executar função e mostrar resultado
 data_inicio = get_data_inicio()
 data_inicio_int = int(data_inicio.strftime("%Y%m%d"))
-print(f"Data início: {data_inicio}")
-print(f"Data início int: {data_inicio_int}")
+logger.info(f"Data início: {data_inicio}")
+logger.info(f"Data início int: {data_inicio_int}")
 
 # Mostrar DataFrame de exemplo
 df_exemplo = spark.range(1).select(
@@ -91,10 +107,8 @@ df_exemplo.show()
 
 # COMMAND ----------
 
-# COMMAND ----------
-
 def get_vendas_offline(
-    spark: SparkSession,
+    spark_session: SparkSession,
     start_date: int = data_inicio_int,
     end_date: int = hoje_int,
 ) -> DataFrame:
@@ -102,18 +116,24 @@ def get_vendas_offline(
     Processa vendas offline (loja física) da tabela vendafaturadarateada.
     
     Args:
-        spark: Sessão do Spark
+        spark_session: Sessão do Spark
         start_date: Data de início no formato YYYYMMDD
         end_date: Data de fim no formato YYYYMMDD
         
     Returns:
         DataFrame com vendas offline agregadas por filial, SKU e data
+        
+    Raises:
+        ValueError: Se start_date > end_date
     """
-    print(f"Processando vendas OFFLINE de {start_date} até {end_date}")
+    if start_date > end_date:
+        raise ValueError("start_date deve ser menor ou igual a end_date")
+    
+    logger.info(f"Processando vendas OFFLINE de {start_date} até {end_date}")
     
     # Carregar tabela de vendas rateadas (offline)
     df_rateada = (
-        spark.table("app_venda.vendafaturadarateada")
+        spark_session.table("app_venda.vendafaturadarateada")
         .filter(F.col("NmEstadoMercadoria") != '1 - SALDO')
         .filter(F.col("NmTipoNegocio") == 'LOJA FISICA')
         .filter(
@@ -123,15 +143,15 @@ def get_vendas_offline(
         )
     )
     
-    print(f"Registros rateados carregados: {df_rateada.count()}")
+    logger.info(f"Registros rateados carregados: {df_rateada.count()}")
     
     # Carregar tabela de vendas não rateadas para quantidade
     df_nao_rateada = (
-        spark.table("app_venda.vendafaturadanaorateada")
+        spark_session.table("app_venda.vendafaturadanaorateada")
         .filter(F.col("QtMercadoria") >= 0)
     )
     
-    print(f"Registros não rateados carregados: {df_nao_rateada.count()}")
+    logger.info(f"Registros não rateados carregados: {df_nao_rateada.count()}")
     
     # Unificar dados e aplicar transformações
     df = (
@@ -139,14 +159,22 @@ def get_vendas_offline(
         .join(df_nao_rateada.select("ChaveFatos", "QtMercadoria"), on="ChaveFatos")
         .withColumn(
             "year_month",
-            F.date_format(F.to_date(F.col("DtAprovacao").cast("string"), "yyyyMMdd"), "yyyyMM").cast("int")
+            F.date_format(
+                F.to_date(F.col("DtAprovacao").cast("string"), "yyyyMMdd"), 
+                "yyyyMM"
+            ).cast("int")
         )
         .withColumnRenamed("CdFilialVenda", "CdFilial")
-        .withColumn("DtAtual",
-            F.date_format(F.to_date(F.col("DtAprovacao").cast("string"), "yyyyMMdd"), "yyyy-MM-dd"))
+        .withColumn(
+            "DtAtual",
+            F.date_format(
+                F.to_date(F.col("DtAprovacao").cast("string"), "yyyyMMdd"), 
+                "yyyy-MM-dd"
+            )
+        )
     )
     
-    print(f"Registros após join: {df.count()}")
+    logger.info(f"Registros após join: {df.count()}")
     
     # Agregar por filial, SKU e data
     df_agg = (
@@ -163,11 +191,11 @@ def get_vendas_offline(
         )
     )
     
-    print(f"Registros após agregação: {df_agg.count()}")
+    logger.info(f"Registros após agregação: {df_agg.count()}")
     
     # Criar grade completa de datas
     cal = (
-        spark.range(1)
+        spark_session.range(1)
         .select(
             F.explode(
                 F.sequence(
@@ -186,7 +214,7 @@ def get_vendas_offline(
         .dropDuplicates()
     )
     
-    print(f"Chaves únicas (Filial x SKU): {keys.count()}")
+    logger.info(f"Chaves únicas (Filial x SKU): {keys.count()}")
     
     # Grade completa (Data x Filial x SKU)
     grade = cal.crossJoin(keys)
@@ -207,30 +235,29 @@ def get_vendas_offline(
         .withColumn("DtAtual", F.date_format(F.col("DtAtual_date"), "yyyy-MM-dd"))
         .withColumnRenamed("CdSkuLoja", "CdSku")
         .select("DtAtual", "year_month", "CdFilial", "CdSku", "Receita", "QtMercadoria")
-        .withColumn("TeveVenda",
-                    F.when(F.col("QtMercadoria") > 0, F.lit(1))
-                    .otherwise(F.lit(0)))
+        .withColumn(
+            "TeveVenda",
+            F.when(F.col("QtMercadoria") > 0, F.lit(1)).otherwise(F.lit(0))
+        )
         .withColumn("Canal", F.lit("OFFLINE"))
     )
     
-    print(f"Registros finais OFFLINE: {result.count()}")
+    logger.info(f"Registros finais OFFLINE: {result.count()}")
     
     # Mostrar amostra dos dados
-    print("Amostra dos dados OFFLINE:")
+    logger.info("Amostra dos dados OFFLINE:")
     result.show(5)
     
     return result
 
 # Executar função de vendas offline
 vendas_offline_df = get_vendas_offline(spark)
-print(f"DataFrame vendas offline criado com {vendas_offline_df.count()} registros")
-
-# COMMAND ----------
+logger.info(f"DataFrame vendas offline criado com {vendas_offline_df.count()} registros")
 
 # COMMAND ----------
 
 def get_vendas_online(
-    spark: SparkSession,
+    spark_session: SparkSession,
     start_date: int = data_inicio_int,
     end_date: int = hoje_int,
 ) -> DataFrame:
@@ -238,18 +265,24 @@ def get_vendas_online(
     Processa vendas online da tabela vendafaturadarateada.
     
     Args:
-        spark: Sessão do Spark
+        spark_session: Sessão do Spark
         start_date: Data de início no formato YYYYMMDD
         end_date: Data de fim no formato YYYYMMDD
         
     Returns:
         DataFrame com vendas online agregadas por filial, SKU e data
+        
+    Raises:
+        ValueError: Se start_date > end_date
     """
-    print(f"Processando vendas ONLINE de {start_date} até {end_date}")
+    if start_date > end_date:
+        raise ValueError("start_date deve ser menor ou igual a end_date")
+    
+    logger.info(f"Processando vendas ONLINE de {start_date} até {end_date}")
     
     # Carregar tabela de vendas rateadas (online)
     df_rateada = (
-        spark.table("app_venda.vendafaturadarateada")
+        spark_session.table("app_venda.vendafaturadarateada")
         .filter(F.col("NmEstadoMercadoria") != '1 - SALDO')
         .filter(F.col("NmTipoNegocio") != 'LOJA FISICA')  # Excluir loja física
         .filter(
@@ -259,11 +292,11 @@ def get_vendas_online(
         )
     )
     
-    print(f"Registros rateados ONLINE carregados: {df_rateada.count()}")
+    logger.info(f"Registros rateados ONLINE carregados: {df_rateada.count()}")
     
     # Carregar tabela de vendas não rateadas para quantidade
     df_nao_rateada = (
-        spark.table("app_venda.vendafaturadanaorateada")
+        spark_session.table("app_venda.vendafaturadanaorateada")
         .filter(F.col("QtMercadoria") >= 0)
     )
     
@@ -273,14 +306,22 @@ def get_vendas_online(
         .join(df_nao_rateada.select("ChaveFatos", "QtMercadoria"), on="ChaveFatos")
         .withColumn(
             "year_month",
-            F.date_format(F.to_date(F.col("DtAprovacao").cast("string"), "yyyyMMdd"), "yyyyMM").cast("int")
+            F.date_format(
+                F.to_date(F.col("DtAprovacao").cast("string"), "yyyyMMdd"), 
+                "yyyyMM"
+            ).cast("int")
         )
         .withColumnRenamed("CdFilialVenda", "CdFilial")
-        .withColumn("DtAtual",
-            F.date_format(F.to_date(F.col("DtAprovacao").cast("string"), "yyyyMMdd"), "yyyy-MM-dd"))
+        .withColumn(
+            "DtAtual",
+            F.date_format(
+                F.to_date(F.col("DtAprovacao").cast("string"), "yyyyMMdd"), 
+                "yyyy-MM-dd"
+            )
+        )
     )
     
-    print(f"Registros após join ONLINE: {df.count()}")
+    logger.info(f"Registros após join ONLINE: {df.count()}")
     
     # Agregar por filial, SKU e data
     df_agg = (
@@ -297,11 +338,11 @@ def get_vendas_online(
         )
     )
     
-    print(f"Registros após agregação ONLINE: {df_agg.count()}")
+    logger.info(f"Registros após agregação ONLINE: {df_agg.count()}")
     
     # Criar grade completa de datas
     cal = (
-        spark.range(1)
+        spark_session.range(1)
         .select(
             F.explode(
                 F.sequence(
@@ -320,7 +361,7 @@ def get_vendas_online(
         .dropDuplicates()
     )
     
-    print(f"Chaves únicas ONLINE (Filial x SKU): {keys.count()}")
+    logger.info(f"Chaves únicas ONLINE (Filial x SKU): {keys.count()}")
     
     # Grade completa (Data x Filial x SKU)
     grade = cal.crossJoin(keys)
@@ -341,23 +382,24 @@ def get_vendas_online(
         .withColumn("DtAtual", F.date_format(F.col("DtAtual_date"), "yyyy-MM-dd"))
         .withColumnRenamed("CdSkuLoja", "CdSku")
         .select("DtAtual", "year_month", "CdFilial", "CdSku", "Receita", "QtMercadoria")
-        .withColumn("TeveVenda",
-                    F.when(F.col("QtMercadoria") > 0, F.lit(1))
-                    .otherwise(F.lit(0)))
+        .withColumn(
+            "TeveVenda",
+            F.when(F.col("QtMercadoria") > 0, F.lit(1)).otherwise(F.lit(0))
+        )
         .withColumn("Canal", F.lit("ONLINE"))
     )
     
-    print(f"Registros finais ONLINE: {result.count()}")
+    logger.info(f"Registros finais ONLINE: {result.count()}")
     
     # Mostrar amostra dos dados
-    print("Amostra dos dados ONLINE:")
+    logger.info("Amostra dos dados ONLINE:")
     result.show(5)
     
     return result
 
 # Executar função de vendas online
 vendas_online_df = get_vendas_online(spark)
-print(f"DataFrame vendas online criado com {vendas_online_df.count()} registros")
+logger.info(f"DataFrame vendas online criado com {vendas_online_df.count()} registros")
 
 # COMMAND ----------
 
@@ -374,16 +416,22 @@ def consolidar_vendas_online_offline(
         
     Returns:
         DataFrame consolidado com vendas de ambos os canais
+        
+    Raises:
+        ValueError: Se os DataFrames estiverem vazios
     """
-    print("Consolidando vendas ONLINE e OFFLINE...")
+    if vendas_offline_df.count() == 0 and vendas_online_df.count() == 0:
+        raise ValueError("Ambos os DataFrames de vendas estão vazios")
+    
+    logger.info("Consolidando vendas ONLINE e OFFLINE...")
     
     # Unir os DataFrames
     vendas_consolidadas = vendas_offline_df.union(vendas_online_df)
     
-    print(f"Total de registros consolidados: {vendas_consolidadas.count()}")
+    logger.info(f"Total de registros consolidados: {vendas_consolidadas.count()}")
     
     # Mostrar estatísticas por canal
-    print("Estatísticas por canal:")
+    logger.info("Estatísticas por canal:")
     vendas_consolidadas.groupBy("Canal").agg(
         F.count("*").alias("Total_Registros"),
         F.sum("Receita").alias("Receita_Total"),
@@ -392,14 +440,14 @@ def consolidar_vendas_online_offline(
     ).show()
     
     # Mostrar amostra dos dados consolidados
-    print("Amostra dos dados consolidados:")
+    logger.info("Amostra dos dados consolidados:")
     vendas_consolidadas.show(10)
     
     return vendas_consolidadas
 
 # Executar consolidação
 vendas_consolidadas_df = consolidar_vendas_online_offline(vendas_offline_df, vendas_online_df)
-print(f"DataFrame consolidado criado com {vendas_consolidadas_df.count()} registros")
+logger.info(f"DataFrame consolidado criado com {vendas_consolidadas_df.count()} registros")
 
 # COMMAND ----------
 
@@ -418,9 +466,15 @@ def salvar_tabela_bronze(
         
     Returns:
         bool: True se salvamento foi bem-sucedido
+        
+    Raises:
+        ValueError: Se modo não for válido
     """
+    if modo not in ["overwrite", "append"]:
+        raise ValueError("modo deve ser 'overwrite' ou 'append'")
+    
     try:
-        print(f"Salvando tabela {nome_tabela} no modo {modo}...")
+        logger.info(f"Salvando tabela {nome_tabela} no modo {modo}...")
         
         # Adicionar metadados de processamento
         df_com_metadados = df.withColumn(
@@ -444,28 +498,26 @@ def salvar_tabela_bronze(
             .option("overwriteSchema", "true") \
             .saveAsTable(nome_tabela)
         
-        print(f"✅ Tabela {nome_tabela} salva com sucesso!")
-        print(f"Registros salvos: {df_com_metadados.count()}")
+        logger.info(f"✅ Tabela {nome_tabela} salva com sucesso!")
+        logger.info(f"Registros salvos: {df_com_metadados.count()}")
         
         # Mostrar schema da tabela salva
-        print("Schema da tabela salva:")
+        logger.info("Schema da tabela salva:")
         spark.table(nome_tabela).printSchema()
         
         # Mostrar amostra dos dados salvos
-        print("Amostra dos dados salvos:")
+        logger.info("Amostra dos dados salvos:")
         spark.table(nome_tabela).show(5)
         
         return True
         
     except Exception as e:
-        print(f"❌ Erro ao salvar tabela {nome_tabela}: {str(e)}")
+        logger.error(f"❌ Erro ao salvar tabela {nome_tabela}: {str(e)}")
         return False
 
 # Executar salvamento
 sucesso = salvar_tabela_bronze(vendas_consolidadas_df)
 if sucesso:
-    print("🎉 Processamento de vendas Bronze concluído com sucesso!")
+    logger.info("🎉 Processamento de vendas Bronze concluído com sucesso!")
 else:
-    print("💥 Falha no processamento de vendas Bronze!")
-
-
+    logger.error("💥 Falha no processamento de vendas Bronze!")
