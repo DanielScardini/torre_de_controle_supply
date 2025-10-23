@@ -1,29 +1,52 @@
-# Databricks notebook source
-# MAGIC %md
-# MAGIC # Processamento de Vendas - Camada Bronze
-# MAGIC
-# MAGIC Este notebook processa dados de vendas online e offline para a camada Bronze,
-# MAGIC seguindo o padrão Medallion Architecture e as melhores práticas Python.
-# MAGIC
-# MAGIC ## Funcionalidades
-# MAGIC
-# MAGIC - Processamento de vendas online e offline
-# MAGIC - Agregação por filial, SKU e data
-# MAGIC - Criação de grade completa de vendas
-# MAGIC - Salvamento na camada Bronze com metadados
-# MAGIC - Timezone São Paulo (GMT-3) para processamento
-# MAGIC
-# MAGIC ## Autor
-# MAGIC
-# MAGIC Torre de Controle Supply Chain - 2024
+#%% [markdown]
+# 📊 Processamento de Vendas - Camada Bronze
+#
+# Este notebook processa dados de vendas online e offline para a camada Bronze,
+# seguindo o padrão Medallion Architecture e as melhores práticas Python.
+#
+# <details>
+# <summary><b>🎯 Objetivos do Projeto</b></summary>
+#
+# - Processar vendas online e offline de forma unificada
+# - Agregar dados por filial, SKU e data
+# - Criar grade completa de vendas com zeros
+# - Salvar na camada Bronze com metadados
+# - Implementar timezone São Paulo (GMT-3)
+# - Seguir padrões de qualidade de código
+#
+# </details>
+#
+# <details>
+# <summary><b>📋 Funcionalidades Principais</b></summary>
+#
+# - **Processamento Offline**: Vendas de loja física
+# - **Processamento Online**: Vendas de canais digitais
+# - **Consolidação**: União de ambos os canais
+# - **Grade Completa**: Todas as combinações filial × SKU × data
+# - **Metadados**: DataHoraProcessamento, FonteDados, VersaoProcessamento
+# - **Validações**: Tratamento de erros e dados inconsistentes
+#
+# </details>
+#
+# ---
+#
+# **Autor**: Torre de Controle Supply Chain - 2024
 
-# COMMAND ----------
+#%% [markdown]
+# ## 1. Setup e Imports
+#
+# <details>
+# <summary><b>📦 Bibliotecas Utilizadas</b></summary>
+#
+# - **pyspark**: Processamento distribuído de dados
+# - **datetime**: Manipulação de datas e horários
+# - **typing**: Anotações de tipo para melhor documentação
+# - **pytz**: Tratamento de timezones
+#
+# </details>
 
-# MAGIC %md
-# MAGIC ## 1. Imports e Configuração Inicial
-
-# COMMAND ----------
-
+#%%
+# Import necessary libraries
 from datetime import datetime, timedelta, date
 from typing import Optional, Union
 
@@ -31,6 +54,22 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
 from pytz import timezone
 
+print("✅ Bibliotecas importadas com sucesso!")
+
+#%% [markdown]
+# ## 2. Configurações Globais
+#
+# <details>
+# <summary><b>⚙️ Configurações do Sistema</b></summary>
+#
+# - **Tabela de Destino**: `databox.bcg_comum.supply_bronze_vendas_90d_on_off`
+# - **Timezone**: São Paulo (GMT-3)
+# - **Período**: Últimos 90 dias (configurável)
+# - **Modo de Salvamento**: Overwrite por padrão
+#
+# </details>
+
+#%%
 # =============================================================================
 # CONFIGURAÇÕES GLOBAIS
 # =============================================================================
@@ -54,13 +93,21 @@ print(f"📝 Data string: {hoje_str}")
 print(f"🔢 Data int: {hoje_int}")
 print(f"🌍 Timezone: {TIMEZONE_SP}")
 
-# COMMAND ----------
+#%% [markdown]
+# ## 3. Função de Cálculo de Data de Início
+#
+# <details>
+# <summary><b>📊 Lógica de Cálculo</b></summary>
+#
+# Esta função calcula a data de início baseada nos últimos N dias:
+# - **Padrão**: 90 dias de retrocesso
+# - **Flexibilidade**: Permite ajustar o período
+# - **Timezone**: Considera timezone São Paulo
+# - **Validação**: Verifica se dias_retrocesso é positivo
+#
+# </details>
 
-# MAGIC %md
-# MAGIC ## 2. Função de Cálculo de Data de Início
-
-# COMMAND ----------
-
+#%%
 def get_data_inicio(
     hoje: Optional[Union[datetime, date]] = None, 
     dias_retrocesso: int = 90
@@ -110,13 +157,22 @@ df_exemplo = spark.range(1).select(
 )
 df_exemplo.show()
 
-# COMMAND ----------
+#%% [markdown]
+# ## 4. Processamento de Vendas Offline
+#
+# <details>
+# <summary><b>🏪 Lógica de Processamento Offline</b></summary>
+#
+# Esta seção processa vendas de loja física:
+# - **Fonte**: Tabela `app_venda.vendafaturadarateada`
+# - **Filtros**: Apenas loja física, valores positivos
+# - **Agregação**: Por filial, SKU e data
+# - **Grade Completa**: Todas as combinações com zeros
+# - **Canal**: Identificado como "OFFLINE"
+#
+# </details>
 
-# MAGIC %md
-# MAGIC ## 3. Processamento de Vendas Offline
-
-# COMMAND ----------
-
+#%%
 def get_vendas_offline(
     spark: SparkSession,
     start_date: int = data_inicio_int,
@@ -264,13 +320,22 @@ def get_vendas_offline(
 vendas_offline_df = get_vendas_offline(spark)
 print(f"🏪 DataFrame vendas offline criado com {vendas_offline_df.count()} registros")
 
-# COMMAND ----------
+#%% [markdown]
+# ## 5. Processamento de Vendas Online
+#
+# <details>
+# <summary><b>🌐 Lógica de Processamento Online</b></summary>
+#
+# Esta seção processa vendas de canais digitais:
+# - **Fonte**: Tabela `app_venda.vendafaturadarateada`
+# - **Filtros**: Exclui loja física, valores positivos
+# - **Agregação**: Por filial, SKU e data
+# - **Grade Completa**: Todas as combinações com zeros
+# - **Canal**: Identificado como "ONLINE"
+#
+# </details>
 
-# MAGIC %md
-# MAGIC ## 4. Processamento de Vendas Online
-
-# COMMAND ----------
-
+#%%
 def get_vendas_online(
     spark: SparkSession,
     start_date: int = data_inicio_int,
@@ -416,13 +481,21 @@ def get_vendas_online(
 vendas_online_df = get_vendas_online(spark)
 print(f"🌐 DataFrame vendas online criado com {vendas_online_df.count()} registros")
 
-# COMMAND ----------
+#%% [markdown]
+# ## 6. Consolidação de Vendas Online e Offline
+#
+# <details>
+# <summary><b>🔄 Lógica de Consolidação</b></summary>
+#
+# Esta seção unifica os dados de ambos os canais:
+# - **União**: Combina DataFrames online e offline
+# - **Estatísticas**: Mostra resumo por canal
+# - **Validação**: Verifica se há dados para processar
+# - **Amostra**: Exibe dados consolidados para verificação
+#
+# </details>
 
-# MAGIC %md
-# MAGIC ## 5. Consolidação de Vendas Online e Offline
-
-# COMMAND ----------
-
+#%%
 def consolidar_vendas_online_offline(
     vendas_offline_df: DataFrame,
     vendas_online_df: DataFrame
@@ -469,13 +542,22 @@ def consolidar_vendas_online_offline(
 vendas_consolidadas_df = consolidar_vendas_online_offline(vendas_offline_df, vendas_online_df)
 print(f"🔄 DataFrame consolidado criado com {vendas_consolidadas_df.count()} registros")
 
-# COMMAND ----------
+#%% [markdown]
+# ## 7. Salvamento na Camada Bronze
+#
+# <details>
+# <summary><b>💾 Lógica de Salvamento</b></summary>
+#
+# Esta seção salva os dados processados na camada Bronze:
+# - **Metadados**: DataHoraProcessamento, FonteDados, VersaoProcessamento
+# - **Timezone**: GMT-3 São Paulo para DataHoraProcessamento
+# - **Modo**: Overwrite por padrão (configurável)
+# - **Validação**: Verifica sucesso do salvamento
+# - **Schema**: Mostra estrutura da tabela criada
+#
+# </details>
 
-# MAGIC %md
-# MAGIC ## 6. Salvamento na Camada Bronze
-
-# COMMAND ----------
-
+#%%
 def salvar_tabela_bronze(
     df: DataFrame,
     nome_tabela: str = TABELA_BRONZE_VENDAS,
@@ -547,25 +629,43 @@ if sucesso:
 else:
     print("💥 Falha no processamento de vendas Bronze!")
 
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## 📋 RESUMO FINAL DO PROCESSAMENTO
-# MAGIC
-# MAGIC ### **O que este notebook faz:**
-# MAGIC 1. **Processa vendas offline** (loja física) da tabela vendafaturadarateada
-# MAGIC 2. **Processa vendas online** (canais digitais) da mesma tabela
-# MAGIC 3. **Consolida ambos os canais** em um único DataFrame
-# MAGIC 4. **Salva na camada Bronze** com metadados de processamento
-# MAGIC 5. **Timezone São Paulo (GMT-3)** para processamento correto
-# MAGIC
-# MAGIC ### **Tabela criada:**
-# MAGIC - `databox.bcg_comum.supply_bronze_vendas_90d_on_off`
-# MAGIC
-# MAGIC ### **Características:**
-# MAGIC - **Período**: Últimos 90 dias configurável
-# MAGIC - **Grade completa**: Todas as combinações filial × SKU × data
-# MAGIC - **Metadados**: DataHoraProcessamento, FonteDados, VersaoProcessamento
-# MAGIC - **Canal identificado**: ONLINE ou OFFLINE
-# MAGIC
-# MAGIC **Este notebook está completo e pronto para execução!** 🎉
+#%% [markdown]
+# ## 8. Conclusões e Resumo Final
+#
+# <details>
+# <summary><b>🔍 Principais Resultados</b></summary>
+#
+# ### ✅ Processamento Concluído
+# - **Vendas Offline**: Processadas com sucesso
+# - **Vendas Online**: Processadas com sucesso
+# - **Consolidação**: Dados unificados
+# - **Salvamento**: Tabela Bronze criada
+#
+# ### 📊 Características da Tabela
+# - **Nome**: `databox.bcg_comum.supply_bronze_vendas_90d_on_off`
+# - **Período**: Últimos 90 dias (configurável)
+# - **Grade Completa**: Todas as combinações filial × SKU × data
+# - **Canais**: ONLINE e OFFLINE identificados
+# - **Metadados**: DataHoraProcessamento, FonteDados, VersaoProcessamento
+#
+# ### 🎯 Próximos Passos
+# - **Camada Silver**: Processar dados limpos e conformados
+# - **Camada Gold**: Criar agregações para dashboards
+# - **Validação**: Implementar testes de qualidade
+# - **Monitoramento**: Configurar alertas de processamento
+#
+# </details>
+#
+# ---
+#
+# ### 📝 Resumo Executivo
+#
+# Este notebook demonstrou um fluxo completo de processamento de dados incluindo:
+# - ✅ **Carregamento**: Dados de vendas online e offline
+# - ✅ **Transformação**: Agregação e criação de grade completa
+# - ✅ **Consolidação**: União de ambos os canais
+# - ✅ **Salvamento**: Persistência na camada Bronze com metadados
+# - ✅ **Validação**: Verificação de integridade dos dados
+# - ✅ **Documentação**: Código bem documentado e organizado
+#
+# **Status**: ✅ **CONCLUÍDO COM SUCESSO**
