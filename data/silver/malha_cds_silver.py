@@ -793,9 +793,26 @@ for _, row in nos_amostra.iterrows():
     })
 
 # Salvar JSON
-json_path = f"/dbfs/tmp/malha_logistica_{tipo_grafo.lower().replace('→', '_')}.json"
+json_path = f"/Workspace/Users/lucas.arodrigues-ext@viavarejo.com.br/usuarios/scardini/torre_de_controle_supply/data/silver/malha_json/malha_logistica_{tipo_grafo.lower().replace('→', '_')}.json"
+
+# Função para converter tipos NumPy/Pandas para tipos Python nativos
+def converter_para_python_nativo(obj):
+    if isinstance(obj, dict):
+        return {key: converter_para_python_nativo(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [converter_para_python_nativo(item) for item in obj]
+    elif hasattr(obj, 'item'):  # NumPy scalars
+        return obj.item()
+    elif hasattr(obj, 'tolist'):  # NumPy arrays
+        return obj.tolist()
+    else:
+        return obj
+
+# Converter resultado para tipos Python nativos
+resultado_json_python = converter_para_python_nativo(resultado_json)
+
 with open(json_path, 'w', encoding='utf-8') as f:
-    json.dump(resultado_json, f, indent=2, ensure_ascii=False)
+    json.dump(resultado_json_python, f, indent=2, ensure_ascii=False)
 
 print(f"✅ Resultados salvos em: {json_path}")
 print(f"📊 Estrutura do JSON para Visualização:")
