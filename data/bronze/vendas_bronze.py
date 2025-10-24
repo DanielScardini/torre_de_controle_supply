@@ -400,7 +400,7 @@ vendas_offline_preparadas_df = (
     .withColumnRenamed("Receita", "Receita_OFFLINE")
     .withColumnRenamed("QtMercadoria", "QtMercadoria_OFFLINE")
     .withColumnRenamed("TeveVenda", "TeveVenda_OFFLINE")
-    .withColumnRenamed("Canal", "Canal_OFFLINE")
+    .drop("Canal")  # Remover coluna Canal pois não precisamos mais
 )
 
 vendas_online_preparadas_df = (
@@ -408,7 +408,7 @@ vendas_online_preparadas_df = (
     .withColumnRenamed("Receita", "Receita_ONLINE")
     .withColumnRenamed("QtMercadoria", "QtMercadoria_ONLINE")
     .withColumnRenamed("TeveVenda", "TeveVenda_ONLINE")
-    .withColumnRenamed("Canal", "Canal_ONLINE")
+    .drop("Canal")  # Remover coluna Canal pois não precisamos mais
 )
 
 # Outer join para garantir todas as combinações
@@ -428,15 +428,17 @@ vendas_consolidadas_df = (
         "Receita_OFFLINE", "QtMercadoria_OFFLINE", "TeveVenda_OFFLINE",
         "Receita_ONLINE", "QtMercadoria_ONLINE", "TeveVenda_ONLINE"
     ])
-    .fillna("OFFLINE", subset=["Canal_OFFLINE"])
-    .fillna("ONLINE", subset=["Canal_ONLINE"])
     # Calcular totais consolidados
     .withColumn("Receita", F.col("Receita_OFFLINE") + F.col("Receita_ONLINE"))
     .withColumn("QtMercadoria", F.col("QtMercadoria_OFFLINE") + F.col("QtMercadoria_ONLINE"))
     .withColumn("TeveVenda", F.col("TeveVenda_OFFLINE") + F.col("TeveVenda_ONLINE"))
-    .withColumn("Canal", F.lit("CONSOLIDADO"))
     # Selecionar colunas finais
-    .select("DtAtual", "year_month", "CdFilial", "CdSku", "Receita", "QtMercadoria", "TeveVenda", "Canal")
+    .select(
+        "DtAtual", "year_month", "CdFilial", "CdSku",
+        "Receita_OFFLINE", "QtMercadoria_OFFLINE", "TeveVenda_OFFLINE",
+        "Receita_ONLINE", "QtMercadoria_ONLINE", "TeveVenda_ONLINE",
+        "Receita", "QtMercadoria", "TeveVenda"
+    )
 )
 
 print(f"📊 Total de registros consolidados: {vendas_consolidadas_df.count()}")
@@ -466,18 +468,24 @@ estatisticas_consolidadas_df = vendas_consolidadas_df.agg(
     F.sum("QtMercadoria").alias("Quantidade_Total"),
     F.sum("TeveVenda").alias("Dias_Com_Venda"),
     F.countDistinct("CdFilial").alias("Filiais_Unicas"),
-    F.countDistinct("CdSku").alias("SKUs_Unicos")
+    F.countDistinct("CdSku").alias("SKUs_Unicos"),
+    F.sum("Receita_OFFLINE").alias("Receita_OFFLINE"),
+    F.sum("Receita_ONLINE").alias("Receita_ONLINE"),
+    F.sum("QtMercadoria_OFFLINE").alias("Quantidade_OFFLINE"),
+    F.sum("QtMercadoria_ONLINE").alias("Quantidade_ONLINE")
 )
 
 display(estatisticas_consolidadas_df)
 
 # Mostrar estatísticas por filial (top 10)
-print("📊 Top 10 filiais por receita:")
+print("📊 Top 10 filiais por receita total:")
 top_filiais_df = (
     vendas_consolidadas_df
     .groupBy("CdFilial")
     .agg(
         F.sum("Receita").alias("Receita_Total"),
+        F.sum("Receita_OFFLINE").alias("Receita_OFFLINE"),
+        F.sum("Receita_ONLINE").alias("Receita_ONLINE"),
         F.sum("QtMercadoria").alias("Quantidade_Total"),
         F.sum("TeveVenda").alias("Dias_Com_Venda")
     )
@@ -571,3 +579,5 @@ print("=" * 80)
 print("✅ PROCESSAMENTO CONCLUÍDO COM SUCESSO!")
 print("🔄 Outer join aplicado para garantir todas as combinações filial-SKU")
 print("🔢 Valores nulos preenchidos com zeros")
+print("📊 Estrutura: SKU x Loja x Dia com colunas separadas por canal")
+print("📈 Colunas: Receita_OFFLINE, Receita_ONLINE, QtMercadoria_OFFLINE, QtMercadoria_ONLINE, etc.")
