@@ -39,7 +39,7 @@ TIMEZONE_SP = timezone('America/Sao_Paulo')
 
 # Usar samples para desenvolvimento (evitar gasto de processamento)
 USAR_SAMPLES: bool = True  # Alterar para False em produção
-SAMPLE_SIZE: int = 100000  # Tamanho do sample para desenvolvimento
+SAMPLE_SIZE: int = 10000  # Tamanho do sample para desenvolvimento
 
 # Inicialização do Spark
 spark = SparkSession.builder.appName("vendas_bronze").getOrCreate()
@@ -137,10 +137,6 @@ print(f"📊 Registros rateados carregados: {vendas_rateadas_offline_df.count()}
 
 # MAGIC %md
 # MAGIC ## Carregamento de Quantidades (Vendas Não Rateadas)
-
-# COMMAND ----------
-
-spark.table("app_venda.vendafaturadanaorateada").limit(10).display()
 
 # COMMAND ----------
 
