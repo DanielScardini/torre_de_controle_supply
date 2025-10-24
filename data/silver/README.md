@@ -2,16 +2,21 @@
 
 A camada Silver representa dados limpos, conformados e prontos para análise de negócio. Esta camada aplica transformações de qualidade, padronização e consolidação dos dados brutos da camada Bronze.
 
-## 📊 Master Table - Vendas + Estoque
+## 📊 Master Tables - Vendas + Estoque
 
 ### **Arquivo Principal**: `vendas_estoque_silver.py`
 
-Esta master table consolida dados de vendas históricas com posição atual de estoque, criando uma visão unificada para análise de demanda vs disponibilidade.
+Este notebook cria duas master tables separadas, consolidando dados de vendas históricas com posição atual de estoque para LOJAS e DEPÓSITOS (CDs), criando visões unificadas para análise de demanda vs disponibilidade.
 
-#### **Estrutura da Master Table:**
+#### **Estrutura das Master Tables:**
 - **Granularidade**: `CdSku` x `CdFilial` x `DtAtual` (apenas hoje)
 - **Estoque**: Posição atual de cada SKU/Filial
 - **Vendas**: Múltiplas janelas temporais agregadas
+- **Separação**: LOJAS e CDs mantidos em tabelas distintas
+
+#### **Master Tables Geradas:**
+- **LOJAS**: `supply_{ambiente}_master_vendas_estoque_lojas`
+- **CDs**: `supply_{ambiente}_master_vendas_estoque_cds`
 
 #### **Janelas Temporais de Vendas:**
 - **MTD**: Month-to-Date
@@ -26,6 +31,7 @@ Esta master table consolida dados de vendas históricas com posição atual de e
 - ✅ **Joins Otimizados**: Usa broadcast joins para tabelas pequenas
 - ✅ **Particionamento**: Aproveita particionamento por data
 - ✅ **Limpeza Automática**: Libera memória automaticamente
+- ✅ **Separação de LOJAS e CDs**: Mantém entidades distintas
 
 ## ⚙️ Configurações de Ambiente
 
@@ -44,15 +50,17 @@ Os notebooks utilizam widgets do Databricks para configuração interativa:
 ### Parametrização de Tabelas
 - **DEV**: Lê tabelas `supply_dev_*` da camada Bronze
 - **PROD**: Lê tabelas `supply_prd_*` da camada Bronze
-- **Salvamento**: Master table salva com prefixo correspondente
+- **Salvamento**: Master tables salvas com prefixo correspondente
 
 ## 📋 Tabelas Geradas
 
 ### Ambiente DEV
-- `databox.bcg_comum.supply_dev_master_vendas_estoque`
+- `databox.bcg_comum.supply_dev_master_vendas_estoque_lojas`
+- `databox.bcg_comum.supply_dev_master_vendas_estoque_cds`
 
 ### Ambiente PROD
-- `databox.bcg_comum.supply_prd_master_vendas_estoque`
+- `databox.bcg_comum.supply_prd_master_vendas_estoque_lojas`
+- `databox.bcg_comum.supply_prd_master_vendas_estoque_cds`
 
 ## 🎯 Casos de Uso
 

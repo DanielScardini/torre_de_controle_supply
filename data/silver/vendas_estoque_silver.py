@@ -58,8 +58,9 @@ from pytz import timezone
 # CONFIGURAÇÕES GLOBAIS
 # =============================================================================
 
-# Nome da tabela de destino na camada Silver (parametrizado por ambiente)
-TABELA_SILVER_MASTER: str = f"databox.bcg_comum.supply_{AMBIENTE_TABELA.lower()}_master_vendas_estoque"
+# Nomes das tabelas de destino na camada Silver (parametrizado por ambiente)
+TABELA_SILVER_MASTER_LOJAS: str = f"databox.bcg_comum.supply_{AMBIENTE_TABELA.lower()}_master_vendas_estoque_lojas"
+TABELA_SILVER_MASTER_CDS: str = f"databox.bcg_comum.supply_{AMBIENTE_TABELA.lower()}_master_vendas_estoque_cds"
 
 # Timezone São Paulo (GMT-3)
 TIMEZONE_SP = timezone('America/Sao_Paulo')
@@ -101,7 +102,8 @@ print("=" * 80)
 print("🔧 CONFIGURAÇÕES DE PROCESSAMENTO:")
 print(f"  • Modo de Execução: {MODO_EXECUCAO}")
 print(f"  • Ambiente da Tabela: {AMBIENTE_TABELA}")
-print(f"  • Tabela de Destino: {TABELA_SILVER_MASTER}")
+print(f"  • Tabela Master Lojas: {TABELA_SILVER_MASTER_LOJAS}")
+print(f"  • Tabela Master CDs: {TABELA_SILVER_MASTER_CDS}")
 print(f"  • Período de Dados: {DIAS_PROCESSAMENTO} dias")
 print(f"  • Data Início: {data_inicio_str}")
 print(f"  • Data Fim: {hoje_str}")
@@ -226,10 +228,17 @@ estoque_cds_df = (
     )
 )
 
-# Unir estoque de lojas e depósitos
-estoque_atual_df = (
+# Processar estoque de lojas separadamente
+estoque_lojas_atual_df = (
     estoque_lojas_df
-    .union(estoque_cds_df)
+    .withColumnRenamed("QtEstoque", "QtEstoqueAtual")
+    .withColumnRenamed("VrTotalVv", "VrEstoqueAtual")
+    .withColumnRenamed("DDE", "DDE_Atual")
+)
+
+# Processar estoque de depósitos separadamente
+estoque_cds_atual_df = (
+    estoque_cds_df
     .withColumnRenamed("QtEstoque", "QtEstoqueAtual")
     .withColumnRenamed("VrTotalVv", "VrEstoqueAtual")
     .withColumnRenamed("DDE", "DDE_Atual")
@@ -237,15 +246,17 @@ estoque_atual_df = (
 
 # Aplicar sample se configurado para desenvolvimento
 if USAR_SAMPLES:
-    print(f"🔬 Aplicando sample de {SAMPLE_SIZE:,} registros ESTOQUE para desenvolvimento...")
-    estoque_atual_df = estoque_atual_df.sample(fraction=0.1, seed=42).limit(SAMPLE_SIZE)
+    print(f"🔬 Aplicando sample de {SAMPLE_SIZE:,} registros ESTOQUE LOJAS para desenvolvimento...")
+    estoque_lojas_atual_df = estoque_lojas_atual_df.sample(fraction=0.1, seed=42).limit(SAMPLE_SIZE)
+    print(f"🔬 Aplicando sample de {SAMPLE_SIZE:,} registros ESTOQUE CDs para desenvolvimento...")
+    estoque_cds_atual_df = estoque_cds_atual_df.sample(fraction=0.1, seed=42).limit(SAMPLE_SIZE)
 
 # Cache estratégico: estoque atual é pequeno e será usado múltiplas vezes
-estoque_atual_df = estoque_atual_df.cache()
+estoque_lojas_atual_df = estoque_lojas_atual_df.cache()
+estoque_cds_atual_df = estoque_cds_atual_df.cache()
 
-print(f"📊 Registros de estoque carregados: {estoque_atual_df.count():,}")
-print(f"🏪 Lojas: {estoque_lojas_df.count():,}")
-print(f"🏭 Depósitos: {estoque_cds_df.count():,}")
+print(f"📊 Registros de estoque LOJAS carregados: {estoque_lojas_atual_df.count():,}")
+print(f"📊 Registros de estoque CDs carregados: {estoque_cds_atual_df.count():,}")
 
 # COMMAND ----------
 
@@ -291,19 +302,118 @@ print(f"  • M-3: {data_inicio_m3}")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Agregação Inteligente de Vendas - Fase 1
+# MAGIC ## Agregação Inteligente com Window Functions
 # MAGIC
-# MAGIC Este bloco realiza a **primeira agregação** das vendas por SKU/Filial,
-# MAGIC reduzindo drasticamente o volume de dados antes dos joins.
-# MAGIC **Estratégia**: Agregar primeiro, depois calcular janelas temporais.
+# MAGIC Este bloco calcula todas as janelas temporais usando window functions com SUM(),
+# MAGIC evitando múltiplos joins sequenciais que são terríveis para performance
+# MAGIC em tabelas enormes.
 
 # COMMAND ----------
 
-print("🔄 Iniciando agregação inteligente de vendas...")
+print("🔄 Calculando janelas temporais com window functions...")
 
-# Primeira agregação: reduzir volume por SKU/Filial
-vendas_agregadas_df = (
+from pyspark.sql.window import Window
+
+# Definir janelas de particionamento por SKU/Filial para diferentes períodos
+window_spec = Window.partitionBy("CdFilial", "CdSku").orderBy("DtAtual")
+
+# Janelas para médias móveis
+window_7d = Window.partitionBy("CdFilial", "CdSku").orderBy("DtAtual").rowsBetween(-6, 0)
+window_14d = Window.partitionBy("CdFilial", "CdSku").orderBy("DtAtual").rowsBetween(-13, 0)
+window_30d = Window.partitionBy("CdFilial", "CdSku").orderBy("DtAtual").rowsBetween(-29, 0)
+window_60d = Window.partitionBy("CdFilial", "CdSku").orderBy("DtAtual").rowsBetween(-59, 0)
+window_90d = Window.partitionBy("CdFilial", "CdSku").orderBy("DtAtual").rowsBetween(-89, 0)
+
+# Calcular todas as janelas temporais usando window functions com SUM
+vendas_com_janelas_df = (
     vendas_bronze_df
+    .withColumn("row_number", F.row_number().over(window_spec))
+    # Janelas temporais usando window functions com SUM
+    .withColumn("Receita_MTD", 
+        F.sum(F.when(F.col("DtAtual") >= data_inicio_mtd, F.col("Receita")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("Receita_YTD", 
+        F.sum(F.when(F.col("DtAtual") >= data_inicio_ytd, F.col("Receita")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("Receita_Last7d", 
+        F.sum(F.when(F.col("DtAtual") >= data_inicio_7d, F.col("Receita")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("Receita_Last30d", 
+        F.sum(F.when(F.col("DtAtual") >= data_inicio_30d, F.col("Receita")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("Receita_Last90d", 
+        F.sum(F.when(F.col("DtAtual") >= data_inicio_90d, F.col("Receita")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("Receita_Last4w", 
+        F.sum(F.when(F.col("DtAtual") >= data_inicio_4w, F.col("Receita")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("Receita_M1", 
+        F.sum(F.when(F.col("DtAtual") == data_inicio_m1, F.col("Receita")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("Receita_M2", 
+        F.sum(F.when(F.col("DtAtual") == data_inicio_m2, F.col("Receita")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("Receita_M3", 
+        F.sum(F.when(F.col("DtAtual") == data_inicio_m3, F.col("Receita")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    # Quantidades
+    .withColumn("QtMercadoria_MTD", 
+        F.sum(F.when(F.col("DtAtual") >= data_inicio_mtd, F.col("QtMercadoria")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("QtMercadoria_YTD", 
+        F.sum(F.when(F.col("DtAtual") >= data_inicio_ytd, F.col("QtMercadoria")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("QtMercadoria_Last7d", 
+        F.sum(F.when(F.col("DtAtual") >= data_inicio_7d, F.col("QtMercadoria")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("QtMercadoria_Last30d", 
+        F.sum(F.when(F.col("DtAtual") >= data_inicio_30d, F.col("QtMercadoria")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("QtMercadoria_Last90d", 
+        F.sum(F.when(F.col("DtAtual") >= data_inicio_90d, F.col("QtMercadoria")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("QtMercadoria_Last4w", 
+        F.sum(F.when(F.col("DtAtual") >= data_inicio_4w, F.col("QtMercadoria")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("QtMercadoria_M1", 
+        F.sum(F.when(F.col("DtAtual") == data_inicio_m1, F.col("QtMercadoria")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("QtMercadoria_M2", 
+        F.sum(F.when(F.col("DtAtual") == data_inicio_m2, F.col("QtMercadoria")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    .withColumn("QtMercadoria_M3", 
+        F.sum(F.when(F.col("DtAtual") == data_inicio_m3, F.col("QtMercadoria")).otherwise(0))
+        .over(Window.partitionBy("CdFilial", "CdSku")))
+    # Médias móveis usando window functions
+    .withColumn("Receita_MM7d", F.avg("Receita").over(window_7d))
+    .withColumn("QtMercadoria_MM7d", F.avg("QtMercadoria").over(window_7d))
+    .withColumn("Receita_MM14d", F.avg("Receita").over(window_14d))
+    .withColumn("QtMercadoria_MM14d", F.avg("QtMercadoria").over(window_14d))
+    .withColumn("Receita_MM30d", F.avg("Receita").over(window_30d))
+    .withColumn("QtMercadoria_MM30d", F.avg("QtMercadoria").over(window_30d))
+    .withColumn("Receita_MM60d", F.avg("Receita").over(window_60d))
+    .withColumn("QtMercadoria_MM60d", F.avg("QtMercadoria").over(window_60d))
+    .withColumn("Receita_MM90d", F.avg("Receita").over(window_90d))
+    .withColumn("QtMercadoria_MM90d", F.avg("QtMercadoria").over(window_90d))
+)
+
+print(f"📊 Janelas temporais calculadas: {vendas_com_janelas_df.count():,} registros")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Agregação Final com DropDuplicates
+# MAGIC
+# MAGIC Este bloco agrega as vendas por SKU/Filial e remove duplicatas,
+# MAGIC mantendo apenas uma linha por combinação única.
+
+# COMMAND ----------
+
+print("📊 Agregando vendas e removendo duplicatas...")
+
+# Agregação final com todas as janelas e médias móveis
+vendas_agregadas_final_df = (
+    vendas_com_janelas_df
     .groupBy("CdFilial", "CdSku")
     .agg(
         # Totais gerais
@@ -317,202 +427,115 @@ vendas_agregadas_df = (
         F.sum("Receita_ON").alias("Receita_ON_Total"),
         F.sum("QtMercadoria_ON").alias("QtMercadoria_ON_Total"),
         
+        # Janelas temporais (já calculadas com window functions)
+        F.first("Receita_MTD").alias("Receita_MTD"),
+        F.first("QtMercadoria_MTD").alias("QtMercadoria_MTD"),
+        F.first("Receita_YTD").alias("Receita_YTD"),
+        F.first("QtMercadoria_YTD").alias("QtMercadoria_YTD"),
+        F.first("Receita_Last7d").alias("Receita_Last7d"),
+        F.first("QtMercadoria_Last7d").alias("QtMercadoria_Last7d"),
+        F.first("Receita_Last30d").alias("Receita_Last30d"),
+        F.first("QtMercadoria_Last30d").alias("QtMercadoria_Last30d"),
+        F.first("Receita_Last90d").alias("Receita_Last90d"),
+        F.first("QtMercadoria_Last90d").alias("QtMercadoria_Last90d"),
+        F.first("Receita_Last4w").alias("Receita_Last4w"),
+        F.first("QtMercadoria_Last4w").alias("QtMercadoria_Last4w"),
+        F.first("Receita_M1").alias("Receita_M1"),
+        F.first("QtMercadoria_M1").alias("QtMercadoria_M1"),
+        F.first("Receita_M2").alias("Receita_M2"),
+        F.first("QtMercadoria_M2").alias("QtMercadoria_M2"),
+        F.first("Receita_M3").alias("Receita_M3"),
+        F.first("QtMercadoria_M3").alias("QtMercadoria_M3"),
+        
+        # Médias móveis (já calculadas com window functions)
+        F.first("Receita_MM7d").alias("Receita_MM7d"),
+        F.first("QtMercadoria_MM7d").alias("QtMercadoria_MM7d"),
+        F.first("Receita_MM14d").alias("Receita_MM14d"),
+        F.first("QtMercadoria_MM14d").alias("QtMercadoria_MM14d"),
+        F.first("Receita_MM30d").alias("Receita_MM30d"),
+        F.first("QtMercadoria_MM30d").alias("QtMercadoria_MM30d"),
+        F.first("Receita_MM60d").alias("Receita_MM60d"),
+        F.first("QtMercadoria_MM60d").alias("QtMercadoria_MM60d"),
+        F.first("Receita_MM90d").alias("Receita_MM90d"),
+        F.first("QtMercadoria_MM90d").alias("QtMercadoria_MM90d"),
+        
         # Estatísticas
         F.countDistinct("DtAtual").alias("DiasDistintos"),
         F.min("DtAtual").alias("PrimeiraVenda"),
         F.max("DtAtual").alias("UltimaVenda")
     )
+    # Remover duplicatas na chave principal
+    .dropDuplicates(["CdFilial", "CdSku"])
 )
 
 # Cache estratégico: tabela muito menor após agregação
-vendas_agregadas_df = vendas_agregadas_df.cache()
+vendas_agregadas_final_df = vendas_agregadas_final_df.cache()
 
-print(f"📊 Vendas agregadas por SKU/Filial: {vendas_agregadas_df.count():,}")
-print(f"📈 Redução de volume: {vendas_bronze_df.count():,} → {vendas_agregadas_df.count():,}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Agregação por Janelas Temporais - Fase 2
-# MAGIC
-# MAGIC Este bloco calcula as agregações por janelas temporais específicas,
-# MAGIC usando a tabela de vendas original mas com filtros otimizados.
-
-# COMMAND ----------
-
-print("📅 Calculando agregações por janelas temporais...")
-
-# Função para calcular agregação por janela temporal
-def calcular_agregacao_janela(vendas_df, data_inicio, data_fim, sufixo):
-    return (
-        vendas_df
-        .filter(F.col("DtAtual").between(data_inicio, data_fim))
-        .groupBy("CdFilial", "CdSku")
-        .agg(
-            F.sum("Receita").alias(f"Receita_{sufixo}"),
-            F.sum("QtMercadoria").alias(f"QtMercadoria_{sufixo}"),
-            F.sum("Receita_OFF").alias(f"Receita_OFF_{sufixo}"),
-            F.sum("QtMercadoria_OFF").alias(f"QtMercadoria_OFF_{sufixo}"),
-            F.sum("Receita_ON").alias(f"Receita_ON_{sufixo}"),
-            F.sum("QtMercadoria_ON").alias(f"QtMercadoria_ON_{sufixo}")
-        )
-    )
-
-# Calcular agregações para cada janela temporal
-vendas_mtd_df = calcular_agregacao_janela(vendas_bronze_df, data_inicio_mtd, hoje_str, "MTD")
-vendas_ytd_df = calcular_agregacao_janela(vendas_bronze_df, data_inicio_ytd, hoje_str, "YTD")
-vendas_last_7d_df = calcular_agregacao_janela(vendas_bronze_df, data_inicio_7d, hoje_str, "Last7d")
-vendas_last_30d_df = calcular_agregacao_janela(vendas_bronze_df, data_inicio_30d, hoje_str, "Last30d")
-vendas_last_90d_df = calcular_agregacao_janela(vendas_bronze_df, data_inicio_90d, hoje_str, "Last90d")
-vendas_last_4w_df = calcular_agregacao_janela(vendas_bronze_df, data_inicio_4w, hoje_str, "Last4w")
-
-# Meses anteriores
-vendas_m1_df = calcular_agregacao_janela(vendas_bronze_df, data_inicio_m1, data_inicio_m1, "M1")
-vendas_m2_df = calcular_agregacao_janela(vendas_bronze_df, data_inicio_m2, data_inicio_m2, "M2")
-vendas_m3_df = calcular_agregacao_janela(vendas_bronze_df, data_inicio_m3, data_inicio_m3, "M3")
-
-print(f"✅ Agregações por janelas temporais calculadas:")
-print(f"  • MTD: {vendas_mtd_df.count():,} registros")
-print(f"  • YTD: {vendas_ytd_df.count():,} registros")
-print(f"  • Last 7d: {vendas_last_7d_df.count():,} registros")
-print(f"  • Last 30d: {vendas_last_30d_df.count():,} registros")
-print(f"  • Last 90d: {vendas_last_90d_df.count():,} registros")
+print(f"📊 Vendas agregadas com janelas: {vendas_agregadas_final_df.count():,}")
+print(f"📈 Redução de volume: {vendas_bronze_df.count():,} → {vendas_agregadas_final_df.count():,}")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cálculo de Médias Móveis
+# MAGIC ## Join Único - Estoque LOJAS + Vendas Agregadas
 # MAGIC
-# MAGIC Este bloco calcula as médias móveis para diferentes períodos,
-# MAGIC usando agregações otimizadas para reduzir volume de dados.
+# MAGIC Este bloco realiza um único join entre estoque atual das LOJAS e vendas agregadas,
+# MAGIC evitando múltiplos joins sequenciais que são terríveis para performance.
 
 # COMMAND ----------
 
-print("📊 Calculando médias móveis...")
-
-# Função para calcular média móvel
-def calcular_media_movel(vendas_df, dias, sufixo):
-    data_inicio_mm = (hoje - timedelta(days=dias)).strftime("%Y-%m-%d")
-    
-    return (
-        vendas_df
-        .filter(F.col("DtAtual").between(data_inicio_mm, hoje_str))
-        .groupBy("CdFilial", "CdSku")
-        .agg(
-            (F.sum("Receita") / dias).alias(f"Receita_MM{sufixo}"),
-            (F.sum("QtMercadoria") / dias).alias(f"QtMercadoria_MM{sufixo}"),
-            (F.sum("Receita_OFF") / dias).alias(f"Receita_OFF_MM{sufixo}"),
-            (F.sum("QtMercadoria_OFF") / dias).alias(f"QtMercadoria_OFF_MM{sufixo}"),
-            (F.sum("Receita_ON") / dias).alias(f"Receita_ON_MM{sufixo}"),
-            (F.sum("QtMercadoria_ON") / dias).alias(f"QtMercadoria_ON_MM{sufixo}")
-        )
-    )
-
-# Calcular médias móveis
-vendas_mm7d_df = calcular_media_movel(vendas_bronze_df, 7, "7d")
-vendas_mm14d_df = calcular_media_movel(vendas_bronze_df, 14, "14d")
-vendas_mm30d_df = calcular_media_movel(vendas_bronze_df, 30, "30d")
-vendas_mm60d_df = calcular_media_movel(vendas_bronze_df, 60, "60d")
-vendas_mm90d_df = calcular_media_movel(vendas_bronze_df, 90, "90d")
-
-print(f"✅ Médias móveis calculadas:")
-print(f"  • MM 7d: {vendas_mm7d_df.count():,} registros")
-print(f"  • MM 14d: {vendas_mm14d_df.count():,} registros")
-print(f"  • MM 30d: {vendas_mm30d_df.count():,} registros")
-print(f"  • MM 60d: {vendas_mm60d_df.count():,} registros")
-print(f"  • MM 90d: {vendas_mm90d_df.count():,} registros")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Join Otimizado - Estoque + Vendas Agregadas
-# MAGIC
-# MAGIC Este bloco realiza o join principal entre estoque atual e vendas agregadas,
-# MAGIC usando estratégias de otimização para grandes volumes de dados.
-
-# COMMAND ----------
-
-print("🔗 Iniciando join otimizado entre estoque e vendas...")
+print("🔗 Iniciando join único entre estoque LOJAS e vendas...")
 
 # Configurar broadcast join para estoque atual (tabela pequena)
 spark.conf.set("spark.sql.adaptive.enabled", "true")
 spark.conf.set("spark.sql.adaptive.coalescePartitions.enabled", "true")
 
-# Join principal: estoque atual + vendas agregadas
-master_table_base_df = (
-    estoque_atual_df
+# Join único: estoque atual LOJAS + vendas agregadas (com todas as janelas)
+master_table_lojas_final_df = (
+    estoque_lojas_atual_df
     .join(
-        vendas_agregadas_df,
+        vendas_agregadas_final_df,
         on=["CdFilial", "CdSku"],
         how="left"
     )
+    .withColumn("DataHoraProcessamento", F.current_timestamp())
+    .withColumn("DtAtual", F.lit(hoje_str))
 )
 
-print(f"📊 Join base realizado: {master_table_base_df.count():,} registros")
+print(f"📊 Master table LOJAS finalizada: {master_table_lojas_final_df.count():,} registros")
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Join com Janelas Temporais - Fase 3
+# MAGIC ## Join Único - Estoque CDs + Vendas Agregadas
 # MAGIC
-# MAGIC Este bloco adiciona as agregações por janelas temporais à master table,
-# MAGIC usando joins sequenciais otimizados.
+# MAGIC Este bloco realiza um único join entre estoque atual dos CDs e vendas agregadas,
+# MAGIC evitando múltiplos joins sequenciais que são terríveis para performance.
 
 # COMMAND ----------
 
-print("🔗 Adicionando janelas temporais à master table...")
+print("🔗 Iniciando join único entre estoque CDs e vendas...")
 
-# Join com janelas temporais (sequencial para otimizar)
-master_table_temp_df = (
-    master_table_base_df
-    .join(vendas_mtd_df, on=["CdFilial", "CdSku"], how="left")
-    .join(vendas_ytd_df, on=["CdFilial", "CdSku"], how="left")
-    .join(vendas_last_7d_df, on=["CdFilial", "CdSku"], how="left")
-    .join(vendas_last_30d_df, on=["CdFilial", "CdSku"], how="left")
-    .join(vendas_last_90d_df, on=["CdFilial", "CdSku"], how="left")
-    .join(vendas_last_4w_df, on=["CdFilial", "CdSku"], how="left")
+# Join único: estoque atual CDs + vendas agregadas (com todas as janelas)
+master_table_cds_final_df = (
+    estoque_cds_atual_df
+    .join(
+        vendas_agregadas_final_df,
+        on=["CdFilial", "CdSku"],
+        how="left"
+    )
+    .withColumn("DataHoraProcessamento", F.current_timestamp())
+    .withColumn("DtAtual", F.lit(hoje_str))
 )
 
-print(f"📊 Janelas temporais adicionadas: {master_table_temp_df.count():,} registros")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Join com Meses Anteriores e Médias Móveis
-# MAGIC
-# MAGIC Este bloco completa a master table com meses anteriores e médias móveis,
-# MAGIC finalizando a consolidação de dados.
-
-# COMMAND ----------
-
-print("🔗 Adicionando meses anteriores e médias móveis...")
-
-# Join com meses anteriores
-master_table_meses_df = (
-    master_table_temp_df
-    .join(vendas_m1_df, on=["CdFilial", "CdSku"], how="left")
-    .join(vendas_m2_df, on=["CdFilial", "CdSku"], how="left")
-    .join(vendas_m3_df, on=["CdFilial", "CdSku"], how="left")
-)
-
-# Join com médias móveis
-master_table_final_df = (
-    master_table_meses_df
-    .join(vendas_mm7d_df, on=["CdFilial", "CdSku"], how="left")
-    .join(vendas_mm14d_df, on=["CdFilial", "CdSku"], how="left")
-    .join(vendas_mm30d_df, on=["CdFilial", "CdSku"], how="left")
-    .join(vendas_mm60d_df, on=["CdFilial", "CdSku"], how="left")
-    .join(vendas_mm90d_df, on=["CdFilial", "CdSku"], how="left")
-)
-
-print(f"📊 Master table finalizada: {master_table_final_df.count():,} registros")
+print(f"📊 Master table CDs finalizada: {master_table_cds_final_df.count():,} registros")
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Limpeza e Preenchimento de Valores Nulos
 # MAGIC
-# MAGIC Este bloco limpa a master table e preenche valores nulos com zeros,
+# MAGIC Este bloco limpa ambas as master tables e preenche valores nulos com zeros,
 # MAGIC garantindo dados consistentes para análise.
 
 # COMMAND ----------
@@ -520,16 +543,22 @@ print(f"📊 Master table finalizada: {master_table_final_df.count():,} registro
 print("🧹 Limpando e preenchendo valores nulos...")
 
 # Preencher valores nulos com zeros para colunas de vendas
-colunas_vendas = [col for col in master_table_final_df.columns if col.startswith(('Receita_', 'QtMercadoria_'))]
+colunas_vendas = [col for col in master_table_lojas_final_df.columns if col.startswith(('Receita_', 'QtMercadoria_'))]
 
-master_table_limpa_df = (
-    master_table_final_df
+# Limpar master table LOJAS
+master_table_lojas_limpa_df = (
+    master_table_lojas_final_df
     .fillna(0, subset=colunas_vendas)
-    .withColumn("DataHoraProcessamento", F.current_timestamp())
-    .withColumn("DtAtual", F.lit(hoje_str))
 )
 
-print(f"✅ Master table limpa: {master_table_limpa_df.count():,} registros")
+# Limpar master table CDs
+master_table_cds_limpa_df = (
+    master_table_cds_final_df
+    .fillna(0, subset=colunas_vendas)
+)
+
+print(f"✅ Master table LOJAS limpa: {master_table_lojas_limpa_df.count():,} registros")
+print(f"✅ Master table CDs limpa: {master_table_cds_limpa_df.count():,} registros")
 print(f"📊 Colunas de vendas preenchidas: {len(colunas_vendas)}")
 
 # COMMAND ----------
@@ -537,26 +566,36 @@ print(f"📊 Colunas de vendas preenchidas: {len(colunas_vendas)}")
 # MAGIC %md
 # MAGIC ## Salvamento na Camada Silver
 # MAGIC
-# MAGIC Este bloco salva a master table na tabela Delta da camada Silver,
-# MAGIC utilizando o modo `overwrite` para garantir que a tabela seja sempre atualizada.
+# MAGIC Este bloco salva ambas as master tables na tabela Delta da camada Silver,
+# MAGIC utilizando o modo `overwrite` para garantir que as tabelas sejam sempre atualizadas.
 
 # COMMAND ----------
 
-print(f"💾 Salvando master table {TABELA_SILVER_MASTER} no modo overwrite...")
+print(f"💾 Salvando master tables na camada Silver...")
 
 try:
-    # Salvar na camada Silver
-    master_table_limpa_df.write \
+    # Salvar master table LOJAS
+    master_table_lojas_limpa_df.write \
         .format("delta") \
         .mode("overwrite") \
         .option("overwriteSchema", "true") \
-        .saveAsTable(TABELA_SILVER_MASTER)
+        .saveAsTable(TABELA_SILVER_MASTER_LOJAS)
     
-    print(f"✅ Master table {TABELA_SILVER_MASTER} salva com sucesso!")
-    print(f"📊 Registros salvos: {master_table_limpa_df.count():,}")
+    print(f"✅ Master table LOJAS {TABELA_SILVER_MASTER_LOJAS} salva com sucesso!")
+    print(f"📊 Registros LOJAS salvos: {master_table_lojas_limpa_df.count():,}")
+    
+    # Salvar master table CDs
+    master_table_cds_limpa_df.write \
+        .format("delta") \
+        .mode("overwrite") \
+        .option("overwriteSchema", "true") \
+        .saveAsTable(TABELA_SILVER_MASTER_CDS)
+    
+    print(f"✅ Master table CDs {TABELA_SILVER_MASTER_CDS} salva com sucesso!")
+    print(f"📊 Registros CDs salvos: {master_table_cds_limpa_df.count():,}")
     
 except Exception as e:
-    print(f"❌ Erro ao salvar master table {TABELA_SILVER_MASTER}: {str(e)}")
+    print(f"❌ Erro ao salvar master tables: {str(e)}")
     raise
 
 # COMMAND ----------
@@ -574,22 +613,10 @@ print("🧹 Limpando cache para liberar memória...")
 try:
     # Limpar cache de todos os DataFrames
     vendas_bronze_df.unpersist()
-    estoque_atual_df.unpersist()
-    vendas_agregadas_df.unpersist()
-    vendas_mtd_df.unpersist()
-    vendas_ytd_df.unpersist()
-    vendas_last_7d_df.unpersist()
-    vendas_last_30d_df.unpersist()
-    vendas_last_90d_df.unpersist()
-    vendas_last_4w_df.unpersist()
-    vendas_m1_df.unpersist()
-    vendas_m2_df.unpersist()
-    vendas_m3_df.unpersist()
-    vendas_mm7d_df.unpersist()
-    vendas_mm14d_df.unpersist()
-    vendas_mm30d_df.unpersist()
-    vendas_mm60d_df.unpersist()
-    vendas_mm90d_df.unpersist()
+    vendas_com_janelas_df.unpersist()
+    vendas_agregadas_final_df.unpersist()
+    estoque_lojas_atual_df.unpersist()
+    estoque_cds_atual_df.unpersist()
     
     print("✅ Cache limpo com sucesso!")
     
@@ -598,7 +625,7 @@ except Exception as e:
 
 # COMMAND ----------
 
-print("🎉 Processamento da Master Table Silver concluído com sucesso!")
+print("🎉 Processamento das Master Tables Silver concluído com sucesso!")
 print("=" * 80)
 print("📊 RESUMO DO PROCESSAMENTO:")
 print(f"  • Período processado: {data_inicio_str} até {hoje_str}")
@@ -607,17 +634,23 @@ print(f"  • Ambiente: {AMBIENTE_TABELA}")
 print(f"  • Tabela vendas: {TABELA_BRONZE_VENDAS}")
 print(f"  • Tabela estoque lojas: {TABELA_BRONZE_ESTOQUE_LOJAS}")
 print(f"  • Tabela estoque CDs: {TABELA_BRONZE_ESTOQUE_CDS}")
-print(f"  • Master table destino: {TABELA_SILVER_MASTER}")
+print(f"  • Master table LOJAS: {TABELA_SILVER_MASTER_LOJAS}")
+print(f"  • Master table CDs: {TABELA_SILVER_MASTER_CDS}")
 print(f"  • Registros de vendas: {vendas_bronze_df.count():,}")
-print(f"  • Registros de estoque: {estoque_atual_df.count():,}")
-print(f"  • Master table final: {master_table_limpa_df.count():,}")
+print(f"  • Registros estoque LOJAS: {estoque_lojas_atual_df.count():,}")
+print(f"  • Registros estoque CDs: {estoque_cds_atual_df.count():,}")
+print(f"  • Master table LOJAS final: {master_table_lojas_limpa_df.count():,}")
+print(f"  • Master table CDs final: {master_table_cds_limpa_df.count():,}")
 print("=" * 80)
 print("🎯 ESTRATÉGIAS DE OTIMIZAÇÃO APLICADAS:")
-print("  ✅ Agregação inteligente de vendas")
+print("  ✅ Window functions para janelas temporais")
+print("  ✅ Agregação única com todas as métricas")
+print("  ✅ Join único por master table (sem múltiplos joins)")
 print("  ✅ Cache estratégico de DataFrames")
-print("  ✅ Joins otimizados com broadcast")
-print("  ✅ Particionamento por data")
+print("  ✅ Broadcast joins para tabelas pequenas")
 print("  ✅ Limpeza automática de cache")
+print("  ✅ Separação de LOJAS e CDs")
+print("  ✅ Evita 8+ joins sequenciais terríveis para performance")
 print("=" * 80)
 
 # COMMAND ----------
