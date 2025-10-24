@@ -191,14 +191,14 @@ if not colunas_possiveis_origem or not colunas_possiveis_destino:
 # AJUSTAR ESTAS VARIÁVEIS CONFORME A ESTRUTURA REAL DA TABELA
 
 # Colunas da tabela planoabastecimento (estrutura real)
-COLUNA_CD_ATENDE = "CdFilialAtende"  # CD que atende (origem)
-COLUNA_CD_ENTREGA = "CdFilialEntrega"  # CD que entrega (destino)
-COLUNA_LOJA = "CdLoja"  # Loja específica atendida
+COLUNA_CD_ATENDE = "CdFilialAtende"  # CD que atende (origem) - SEMPRE CD
+COLUNA_CD_ENTREGA = "CdFilialEntrega"  # CD que entrega (destino) - SEMPRE CD
+COLUNA_LOJA = "CdLoja"  # Loja específica atendida - SEMPRE LOJA
 
 print(f"🔧 Configuração das colunas:")
-print(f"  • Coluna CD ATENDE: {COLUNA_CD_ATENDE}")
-print(f"  • Coluna CD ENTREGA: {COLUNA_CD_ENTREGA}")
-print(f"  • Coluna LOJA: {COLUNA_LOJA}")
+print(f"  • Coluna CD ATENDE: {COLUNA_CD_ATENDE} (SEMPRE CD)")
+print(f"  • Coluna CD ENTREGA: {COLUNA_CD_ENTREGA} (SEMPRE CD)")
+print(f"  • Coluna LOJA: {COLUNA_LOJA} (SEMPRE LOJA)")
 
 # Verificar se as colunas existem
 colunas_obrigatorias = [COLUNA_CD_ATENDE, COLUNA_CD_ENTREGA, COLUNA_LOJA]
@@ -233,6 +233,7 @@ else:
 # COMMAND ----------
 
 print("🏗️ Analisando estrutura CD→CD e CD→Loja...")
+print("📋 IMPORTANTE: CdFilialAtende e CdFilialEntrega são SEMPRE CDs, CdLoja é SEMPRE LOJA")
 
 # Verificar se temos as colunas necessárias
 if COLUNA_CD_ATENDE not in plano_df.columns or COLUNA_CD_ENTREGA not in plano_df.columns or COLUNA_LOJA not in plano_df.columns:
@@ -241,6 +242,7 @@ if COLUNA_CD_ATENDE not in plano_df.columns or COLUNA_CD_ENTREGA not in plano_df
     raise ValueError("Não é possível construir a análise sem as colunas necessárias!")
 
 # Análise 1: Conexões CD→CD (quando CdFilialAtende != CdFilialEntrega)
+# Ambos são CDs, então temos um link real entre CDs
 conexoes_cd_cd_df = (
     plano_df
     .select(
@@ -258,6 +260,7 @@ conexoes_cd_cd_df = (
 print(f"📊 Conexões CD→CD encontradas: {conexoes_cd_cd_df.count():,}")
 
 # Análise 2: Conexões CD→Loja (quando CdFilialAtende == CdFilialEntrega)
+# CdFilialAtende é CD, CdLoja é Loja, então temos CD atendendo suas lojas
 conexoes_cd_loja_df = (
     plano_df
     .select(
@@ -303,6 +306,7 @@ if len(conexoes_cd_cd_pandas) > 0:
     print(f"\n🏗️ ANÁLISE CD→CD (Links entre CDs):")
     print(f"  • CDs únicos que atendem outros CDs: {conexoes_cd_cd_pandas['cd_atende'].nunique():,}")
     print(f"  • CDs únicos que são atendidos: {conexoes_cd_cd_pandas['cd_entrega'].nunique():,}")
+    print(f"  📋 NOTA: Ambos CdFilialAtende e CdFilialEntrega são SEMPRE CDs")
     
     # Mostrar top CDs por número de outros CDs atendidos
     print(f"\n🏆 TOP 10 CDs que atendem mais outros CDs:")
@@ -321,6 +325,7 @@ if len(conexoes_cd_loja_pandas) > 0:
     print(f"\n🏪 ANÁLISE CD→Loja (CDs atendendo suas lojas):")
     print(f"  • CDs únicos que atendem lojas: {conexoes_cd_loja_pandas['cd_atende'].nunique():,}")
     print(f"  • Lojas únicas atendidas: {conexoes_cd_loja_pandas['loja_atendida'].nunique():,}")
+    print(f"  📋 NOTA: CdFilialAtende é SEMPRE CD, CdLoja é SEMPRE LOJA")
     
     # Mostrar top CDs por número de lojas atendidas
     print(f"\n🏆 TOP 10 CDs que atendem mais lojas:")
@@ -338,6 +343,7 @@ if len(conexoes_cd_cd_pandas) > 0 and len(conexoes_cd_loja_pandas) > 0:
     print(f"  • CDs que atendem outros CDs: {len(cds_que_atendem_outros):,}")
     print(f"  • CDs que atendem lojas: {len(cds_que_atendem_lojas):,}")
     print(f"  • CDs híbridos (fazem ambos): {len(cds_hibridos):,}")
+    print(f"  📋 NOTA: Todos os valores são CDs (CdFilialAtende)")
     
     if cds_hibridos:
         print(f"  • CDs híbridos: {list(cds_hibridos)[:10]}")  # Mostrar apenas os primeiros 10
@@ -354,19 +360,23 @@ if len(conexoes_cd_cd_pandas) == 0:
     print("⚠️ AVISO: Nenhuma conexão CD→CD encontrada!")
     print("🔍 Isso significa que não há links entre CDs - cada CD atende apenas suas próprias lojas")
     print("📊 A análise de grafos será focada apenas na estrutura CD→Loja")
+    print("📋 NOTA: CdFilialAtende e CdFilialEntrega são SEMPRE CDs")
     usar_grafo_cd_cd = False
 else:
     print(f"✅ Dados CD→CD validados! {len(conexoes_cd_cd_pandas):,} conexões CD→CD encontradas")
     print("🚀 Prosseguindo com análise de grafos CD→CD...")
+    print("📋 NOTA: CdFilialAtende e CdFilialEntrega são SEMPRE CDs")
     usar_grafo_cd_cd = True
 
 # Verificar dados CD→Loja
 if len(conexoes_cd_loja_pandas) == 0:
     print("⚠️ AVISO: Nenhuma conexão CD→Loja encontrada!")
     print("🔍 Verifique se a estrutura da tabela está correta")
+    print("📋 NOTA: CdFilialAtende é SEMPRE CD, CdLoja é SEMPRE LOJA")
     usar_grafo_cd_loja = False
 else:
     print(f"✅ Dados CD→Loja validados! {len(conexoes_cd_loja_pandas):,} conexões CD→Loja encontradas")
+    print("📋 NOTA: CdFilialAtende é SEMPRE CD, CdLoja é SEMPRE LOJA")
     usar_grafo_cd_loja = True
 
 if not usar_grafo_cd_cd and not usar_grafo_cd_loja:
