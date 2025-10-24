@@ -2,47 +2,54 @@
 
 ## Visão Geral
 
-A camada Bronze armazena dados brutos sem transformações, preservando a estrutura original dos dados de origem.
+A camada Bronze é responsável pelo armazenamento de dados brutos sem transformações significativas, preservando a integridade dos dados originais e adicionando apenas metadados essenciais de processamento.
 
-## Estrutura de Tabelas
+## 📊 Catálogo de Tabelas
 
-### Sales Data
-- `bronze.raw_online_sales`: Vendas online brutas
-- `bronze.raw_offline_sales`: Vendas offline brutas
+Para uma visão completa das tabelas implementadas, consulte o [Catálogo de Tabelas](../CATALOGO_TABELAS.md).
 
-### Inventory Data
-- `bronze.raw_stock_positions`: Posições de estoque brutas
-- `bronze.raw_movements`: Movimentações de estoque brutas
-- `bronze.raw_allocations`: Alocações brutas
+### Tabelas Implementadas
 
-### Quality Data
-- `bronze.raw_quality`: Dados de qualidade brutos
+#### 1. **Vendas Consolidadas**
+- **Tabela**: `databox.bcg_comum.supply_bronze_vendas_90d_on_off`
+- **Arquivo**: `vendas_bronze.py`
+- **Descrição**: Consolidação de vendas online e offline com outer join
 
-### Planning Data
-- `bronze.raw_s_and_op`: Dados S&OP brutos
-- `bronze.raw_supply_plan`: Plano de abastecimento bruto
+#### 2. **Estoque de Lojas**
+- **Tabela**: `databox.bcg_comum.supply_bronze_estoque_lojas`
+- **Arquivo**: `estoque_bronze.py`
+- **Descrição**: Estoque das lojas enriquecido com dados do GEF
 
-### Reference Data
-- `bronze.raw_products`: Produtos brutos
-- `bronze.raw_stores`: Lojas brutas
-- `bronze.raw_distribution_centers`: CDs brutos
+#### 3. **Estoque de Depósitos**
+- **Tabela**: `databox.bcg_comum.supply_bronze_estoque_cds`
+- **Arquivo**: `estoque_bronze.py`
+- **Descrição**: Estoque dos CDs enriquecido com dados do GEF
 
-## Schema Padrão
+## 🔧 Características Técnicas
 
-Todas as tabelas Bronze incluem:
-- `ingestion_timestamp`: Timestamp da ingestão
-- `source_system`: Sistema de origem
-- `file_name`: Nome do arquivo original
-- `year`, `month`, `day`: Partições temporais
+- **Formato**: Delta Lake (Parquet otimizado)
+- **Modo**: Overwrite (atualização completa)
+- **Particionamento**: Por data (`DtAtual`)
+- **Validações**: Duplicatas, multiplicação de registros, formato de datas
+- **Cache**: Implementado com limpeza automática
+- **Samples**: Suporte para desenvolvimento
 
-## Processamento
+## 📋 Metadados Padrão
 
-### Ingestão Diária
-- Execução automática via Databricks Jobs
-- Validação básica de schema
-- Particionamento automático por data
+Todas as tabelas incluem:
+- `DataHoraProcessamento`: Timestamp GMT-3 São Paulo
+- `DataProcessamento`: Data de processamento
+- `FonteDados`: Origem dos dados
+- `VersaoProcessamento`: Versão do processamento
 
-### Retenção
-- Dados mantidos por 2 anos
-- Compressão automática após 30 dias
-- Arquivo para cold storage após 1 ano
+## 🚀 Execução
+
+Os notebooks podem ser executados no Databricks com as seguintes configurações:
+- **Desenvolvimento**: `USAR_SAMPLES=True`
+- **Produção**: `USAR_SAMPLES=False`
+
+## 📚 Documentação Adicional
+
+- [Catálogo Completo de Tabelas](../CATALOGO_TABELAS.md)
+- [Arquitetura de Dados](../README.md)
+- [Guia de Desenvolvimento](../../DEVELOPMENT.md)
