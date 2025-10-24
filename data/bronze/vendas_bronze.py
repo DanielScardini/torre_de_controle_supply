@@ -33,6 +33,14 @@ TABELA_BRONZE_VENDAS: str = "databox.bcg_comum.supply_bronze_vendas_90d_on_off"
 # Timezone São Paulo (GMT-3)
 TIMEZONE_SP = timezone('America/Sao_Paulo')
 
+# =============================================================================
+# CONFIGURAÇÕES DE DESENVOLVIMENTO
+# =============================================================================
+
+# Usar samples para desenvolvimento (evitar gasto de processamento)
+USAR_SAMPLES: bool = True  # Alterar para False em produção
+SAMPLE_SIZE: int = 100000  # Tamanho do sample para desenvolvimento
+
 # Inicialização do Spark
 spark = SparkSession.builder.appName("vendas_bronze").getOrCreate()
 
@@ -45,6 +53,19 @@ print(f"📅 Data de processamento: {hoje}")
 print(f"📝 Data string: {hoje_str}")
 print(f"🔢 Data int: {hoje_int}")
 print(f"🌍 Timezone: {TIMEZONE_SP}")
+
+# =============================================================================
+# CONFIGURAÇÕES DE PROCESSAMENTO
+# =============================================================================
+print("=" * 80)
+print("🔧 CONFIGURAÇÕES DE PROCESSAMENTO:")
+print(f"  • Usar Samples: {USAR_SAMPLES}")
+if USAR_SAMPLES:
+    print(f"  • Tamanho do Sample: {SAMPLE_SIZE:,} registros")
+    print("  • ⚠️  MODO DESENVOLVIMENTO - Alterar USAR_SAMPLES=False para produção")
+else:
+    print("  • ✅ MODO PRODUÇÃO - Processamento completo")
+print("=" * 80)
 
 # COMMAND ----------
 
@@ -101,7 +122,14 @@ vendas_rateadas_offline_df = (
             & (F.col("VrOperacao") >= 0)
             & (F.col("VrCustoContabilFilialSku") >= 0)
         )
-).cache()
+    )  
+
+# Aplicar sample se configurado para desenvolvimento
+if USAR_SAMPLES:
+    print(f"🔬 Aplicando sample de {SAMPLE_SIZE:,} registros para desenvolvimento...")
+    vendas_rateadas_offline_df = vendas_rateadas_offline_df.sample(fraction=0.1, seed=42).limit(SAMPLE_SIZE)
+
+vendas_rateadas_offline_df = vendas_rateadas_offline_df.cache()
 
 print(f"📊 Registros rateados carregados: {vendas_rateadas_offline_df.count()}")
 
@@ -120,9 +148,7 @@ spark.table("app_venda.vendafaturadanaorateada").limit(10).display()
 vendas_nao_rateadas_df = (
         spark.table("app_venda.vendafaturadanaorateada")
         .filter(F.col("QtMercadoria") >= 0)
-        # TODO - filtrar por DtEmissaoFaturamento - int YYYYMMDD
-        # baseado na data seguindo os outros filtros - de data inicio até hoje
-        #.filter()
+        .filter(F.col("DtEmissaoFaturamento").between(data_inicio_int, hoje_int))
         .select("ChaveFatos", "QtMercadoria")
 )
 
@@ -278,7 +304,14 @@ vendas_rateadas_online_df = (
         & (F.col("VrOperacao") >= 0)
         & (F.col("VrCustoContabilFilialSku") >= 0)
     )
-).cache()
+)
+
+# Aplicar sample se configurado para desenvolvimento
+if USAR_SAMPLES:
+    print(f"🔬 Aplicando sample de {SAMPLE_SIZE:,} registros ONLINE para desenvolvimento...")
+    vendas_rateadas_online_df = vendas_rateadas_online_df.sample(fraction=0.1, seed=42).limit(SAMPLE_SIZE)
+
+vendas_rateadas_online_df = vendas_rateadas_online_df.cache()
 
 print(f"📊 Registros rateados ONLINE carregados: {vendas_rateadas_online_df.count()}")
 
