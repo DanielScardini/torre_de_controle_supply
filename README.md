@@ -11,29 +11,38 @@ A Torre de Controle de Supply Chain é uma ferramenta de visibilidade de estoque
 - **Clareza dos Passos Importantes**: Alertas priorizados e recomendações de ações preventivas
 - **Respostas Mais Precisas**: Recomendações adequadas no momento oportuno para solução de problemas
 
-## Funcionalidades Principais
+## Funcionalidades Implementadas
 
-1. **Integração de Dados**: Combinação entre múltiplas bases, habilitando fonte única para decisão
-2. **Processamento Automático**: Ganho em agilidade com atualização diária via datalake
-3. **Visualização em Dashboard**: Monitoramento da performance e riscos atuais na cadeia
-4. **Gestão à Vista**: Governança sobre alertas críticos para fóruns periódicos
-5. **Suporte à Decisão**: Geração de alertas e recomendações com inteligência de negócios
+### ✅ Camada Bronze (Dados Brutos)
+- **Vendas**: Processamento de vendas online/offline com outer join (`vendas_bronze.py`)
+- **Estoque**: Processamento de estoque de lojas e CDs com enriquecimento GEF (`estoque_bronze.py`)
+- **S&OP**: Processamento de dados S&OP (`sop_bronze.py`)
+
+### ✅ Camada Silver (Dados Limpos)
+- **Master Tables**: Tabelas mestras de vendas + estoque para lojas e CDs (`vendas_estoque_silver.py`)
+- **Análise de Malha**: Análise de complexidade logística CD→CD e CD→Loja (`malha_cds_silver.py`)
+
+### 🔄 Em Desenvolvimento
+- **Camada Gold**: Agregações para dashboards
+- **Aplicação Streamlit**: Dashboards interativos
+- **Views SQL**: Views para consumo pelos dashboards
 
 ## Tecnologias
 
 - **Databricks**: Plataforma principal para processamento e execução
-- **Streamlit**: Framework para criação de dashboards interativos
-- **Plotly**: Biblioteca para visualizações avançadas
+- **PySpark**: Processamento de dados distribuído
+- **Plotly**: Biblioteca para visualizações interativas (usada em malha_cds_silver.py)
+- **NetworkX**: Análise de grafos para complexidade logística
 - **Python**: Linguagem principal de desenvolvimento
-- **SQL**: Para processamento de dados e criação de views
+- **Streamlit**: Framework para dashboards (implementação futura)
 
 ## Estrutura do Projeto
 
 ```
 torre_de_controle_supply/
 ├── README.md                           # Este arquivo
-├── ARCHITECTURE.md                     # Documentação da arquitetura
-├── DEVELOPMENT.md                      # Guia de desenvolvimento
+├── docs/ARCHITECTURE.md                  # Documentação da arquitetura
+├── docs/DEVELOPMENT.md                   # Guia de desenvolvimento
 ├── requirements.txt                    # Dependências Python
 ├── databricks-requirements.txt         # Dependências específicas do Databricks
 ├── .gitignore                          # Arquivos ignorados pelo Git
@@ -107,19 +116,25 @@ torre_de_controle_supply/
    pip install -r requirements.txt
    ```
 
-3. Configure as variáveis de ambiente no arquivo `config/settings.py`
+3. Para ambiente Databricks:
+   ```bash
+   pip install -r databricks-requirements.txt
+   ```
 
 ### Execução
 
-Para executar a aplicação Streamlit:
+#### Notebooks Databricks
+- Execute os notebooks na ordem: Bronze → Silver → Gold
+- Configure os widgets para ambiente (DEV/PROD) e modo (TEST/RUN)
 
+#### Aplicação Streamlit (Futuro)
 ```bash
 streamlit run src/frontend/main.py
 ```
 
 ## Contribuição
 
-Consulte o arquivo `DEVELOPMENT.md` para informações sobre como contribuir com o projeto.
+Consulte o arquivo `docs/DEVELOPMENT.md` para informações sobre como contribuir com o projeto.
 
 ## Licença
 

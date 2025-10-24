@@ -4,6 +4,15 @@
 
 Este documento descreve a estrutura e organização das camadas de dados na Torre de Controle, seguindo o padrão **Medallion Architecture** (Bronze, Silver, Gold).
 
+## 📊 Catálogo de Tabelas
+
+Para uma visão detalhada das tabelas implementadas, consulte o [Catálogo de Tabelas](CATALOGO_TABELAS.md).
+
+### Tabelas Implementadas (Bronze)
+- **Vendas**: `databox.bcg_comum.supply_bronze_vendas_90d_on_off`
+- **Estoque Lojas**: `databox.bcg_comum.supply_bronze_estoque_lojas`
+- **Estoque CDs**: `databox.bcg_comum.supply_bronze_estoque_cds`
+
 ## Estrutura das Camadas
 
 ### 1. Camada Bronze (`data/bronze/`)

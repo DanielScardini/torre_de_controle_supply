@@ -1,56 +1,91 @@
-# Silver Layer - Cleaned and Validated Data
+# Camada Silver - Dados Limpos e Conformados
 
-## Visão Geral
+A camada Silver representa dados limpos, conformados e prontos para análise de negócio. Esta camada aplica transformações de qualidade, padronização e consolidação dos dados brutos da camada Bronze.
 
-A camada Silver contém dados limpos e validados, prontos para análise e processamento posterior.
+## 📊 Master Tables - Vendas + Estoque
 
-## Estrutura de Tabelas
+### **Arquivo Principal**: `vendas_estoque_silver.py`
 
-### Cleaned Data
-- `silver.cleaned_sales`: Vendas limpas e validadas
-- `silver.cleaned_inventory`: Estoque limpo e validado
-- `silver.cleaned_quality`: Qualidade limpa e validada
-- `silver.cleaned_planning`: Planejamento limpo e validado
+Este notebook cria duas master tables separadas, consolidando dados de vendas históricas com posição atual de estoque para LOJAS e DEPÓSITOS (CDs), criando visões unificadas para análise de demanda vs disponibilidade.
 
-### Enriched Data
-- `silver.sales_with_product_info`: Vendas enriquecidas com dados de produto
-- `silver.inventory_with_location`: Estoque enriquecido com localização
-- `silver.planning_with_forecasts`: Planejamento enriquecido com previsões
+#### **Estrutura das Master Tables:**
+- **Granularidade**: `CdSku` x `CdFilial` x `DtAtual` (apenas hoje)
+- **Estoque**: Posição atual de cada SKU/Filial
+- **Vendas**: Múltiplas janelas temporais agregadas
+- **Separação**: LOJAS e CDs mantidos em tabelas distintas
 
-### Validated Data
-- `silver.quality_checks`: Resultados de checks de qualidade
-- `silver.business_rules`: Validações de regras de negócio
+#### **Master Tables Geradas:**
+- **LOJAS**: `supply_{ambiente}_master_vendas_estoque_lojas`
+- **CDs**: `supply_{ambiente}_master_vendas_estoque_cds`
 
-## Transformações Aplicadas
+#### **Janelas Temporais de Vendas:**
+- **MTD**: Month-to-Date
+- **YTD**: Year-to-Date
+- **Last 7d, 30d, 90d, 4w**: Períodos móveis
+- **M-1, M-2, M-3**: Meses anteriores
+- **Médias Móveis**: 7d, 14d, 30d, 60d, 90d
 
-### Limpeza de Dados
-- Remoção de duplicatas
-- Tratamento de valores nulos
-- Padronização de formatos
-- Correção de inconsistências
+#### **Estratégias de Otimização:**
+- ✅ **Agregação Inteligente**: Reduz volume de vendas antes do join
+- ✅ **Cache Estratégico**: Mantém apenas dados essenciais em memória
+- ✅ **Joins Otimizados**: Usa broadcast joins para tabelas pequenas
+- ✅ **Particionamento**: Aproveita particionamento por data
+- ✅ **Limpeza Automática**: Libera memória automaticamente
+- ✅ **Separação de LOJAS e CDs**: Mantém entidades distintas
 
-### Validações
-- Integridade referencial
-- Ranges de valores válidos
-- Regras de negócio específicas
-- Consistência temporal
+## ⚙️ Configurações de Ambiente
 
-### Enriquecimento
-- Join com tabelas de referência
-- Cálculo de campos derivados
-- Classificações e categorizações
-- Geocodificação de endereços
+### Widgets Interativos
+Os notebooks utilizam widgets do Databricks para configuração interativa:
 
-## Qualidade de Dados
+- **Modo de Execução**: `TEST` (com samples + 1 dia) ou `RUN` (completo + 90 dias)
+- **Ambiente da Tabela**: `DEV` (desenvolvimento) ou `PROD` (produção)
+- **Tamanho do Sample**: Configurável via widget (apenas para TEST)
 
-### Métricas de Qualidade
-- Percentual de dados válidos
-- Número de alertas por tabela
-- Tempo de resolução de problemas
-- Satisfação dos usuários
+### Interface de Configuração
+- **Dropdowns**: Para seleção de modo e ambiente
+- **Campo de Texto**: Para tamanho do sample
+- **Sem Edição de Código**: Configuração direta na interface
 
-### Alertas Automáticos
-- Dados fora do range esperado
-- Inconsistências detectadas
-- Falhas de validação
-- Problemas de performance
+### Parametrização de Tabelas
+- **DEV**: Lê tabelas `supply_dev_*` da camada Bronze
+- **PROD**: Lê tabelas `supply_prd_*` da camada Bronze
+- **Salvamento**: Master tables salvas com prefixo correspondente
+
+## 📋 Tabelas Geradas
+
+### Ambiente DEV
+- `databox.bcg_comum.supply_dev_master_vendas_estoque_lojas`
+- `databox.bcg_comum.supply_dev_master_vendas_estoque_cds`
+
+### Ambiente PROD
+- `databox.bcg_comum.supply_prd_master_vendas_estoque_lojas`
+- `databox.bcg_comum.supply_prd_master_vendas_estoque_cds`
+
+## 🎯 Casos de Uso
+
+### Análise de Demanda
+- Comparar vendas históricas com estoque atual
+- Identificar padrões de sazonalidade
+- Analisar tendências por canal (ON/OFF)
+
+### Previsão de Ruptura
+- Identificar SKUs com alta demanda e baixo estoque
+- Alertas baseados em médias móveis
+- Análise de cobertura de estoque
+
+### Otimização de Estoque
+- Balancear disponibilidade vs custo
+- Análise de DDE (Dias de Estoque)
+- Otimização por cluster ABC
+
+### Dashboards e Relatórios
+- Dados prontos para visualização
+- Múltiplas janelas temporais em uma tabela
+- Performance otimizada para consultas
+
+## 📚 Documentação Adicional
+
+- [Configurações de Ambiente](../bronze/CONFIGURACOES_AMBIENTE.md)
+- [Catálogo de Tabelas](../CATALOGO_TABELAS.md)
+- [Índice de Documentação](../INDICE_DOCUMENTACAO.md)
