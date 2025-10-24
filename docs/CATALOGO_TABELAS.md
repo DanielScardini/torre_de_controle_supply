@@ -41,13 +41,17 @@ Este catálogo documenta todas as tabelas implementadas nas diferentes camadas d
 
 #### 3. **Estoque de Depósitos (CDs)**
 - **Tabela**: `databox.bcg_comum.supply_bronze_estoque_cds`
-- **Propósito**: Estoque dos centros de distribuição enriquecido com dados estratégicos do GEF
+- **Propósito**: Estoque dos centros de distribuição enriquecido com métricas GEF agregadas das lojas atendidas
 - **Filtros**: `DsEstoqueLojaDeposito == "D"`
 - **Fonte**: 
   - `data_engineering_prd.app_logistica.gi_boss_qualidade_estoque`
   - `databox.logistica_comum.gef_visao_estoque_lojas` (enriquecimento)
-- **Join**: `CdFilial + CdSku + DtAtual`
-- **Métricas GEF**: Mesmas métricas estratégicas das lojas
+  - `data_engineering_prd.context_logistica.planoabastecimento` (agregação)
+- **Processamento**: Agregação GEF das lojas por CD via plano de abastecimento
+- **Agregação**: 
+  - **SUM**: `ESTOQUE_SEGURANCA`, `ESTOQUE_ALVO`, `DDV_*`, `GRADE`, `TRANSITO`, `ESTOQUE_PROJETADO`, `MEDIA_*`, `CLUSTER_*`
+  - **AVG**: `LEADTIME_MEDIO`, `COBERTURA_ES_DIAS`, `COBERTURA_ATUAL`, `COBERTURA_ALVO`
+- **Lógica**: Soma das demandas das lojas que cada CD atende
 
 ### Características da Camada Bronze
 
@@ -63,10 +67,40 @@ Este catálogo documenta todas as tabelas implementadas nas diferentes camadas d
 
 ## 📈 Camada Silver
 
-### Status: Em Desenvolvimento
-- **Propósito**: Dados limpos e validados
-- **Transformações**: A serem implementadas
-- **Validações**: A serem definidas
+### Tabelas Implementadas
+
+#### 1. **Master Table - Lojas**
+- **Tabela**: `databox.bcg_comum.supply_{ambiente}_master_vendas_estoque_lojas`
+- **Propósito**: Tabela mestra consolidando estoque atual com vendas históricas das lojas
+- **Granularidade**: `CdSku x CdFilial x DtAtual` (sempre dados de hoje)
+- **Fonte**: 
+  - `supply_{ambiente}_bronze_vendas_90d_on_off` (vendas)
+  - `supply_{ambiente}_bronze_estoque_lojas` (estoque atual)
+- **Janelas Temporais**: MTD, YTD, M-1, M-2, M-3, Last 7d/30d/90d/4w
+- **Médias Móveis**: 7d, 14d, 30d, 60d, 90d
+- **Otimização**: Window functions + dropDuplicates para performance
+
+#### 2. **Master Table - CDs**
+- **Tabela**: `databox.bcg_comum.supply_{ambiente}_master_vendas_estoque_cds`
+- **Propósito**: Tabela mestra consolidando estoque atual com vendas históricas dos CDs
+- **Granularidade**: `CdSku x CdFilial x DtAtual` (sempre dados de hoje)
+- **Fonte**: 
+  - `supply_{ambiente}_bronze_vendas_90d_on_off` (vendas)
+  - `supply_{ambiente}_bronze_estoque_cds` (estoque atual)
+- **Janelas Temporais**: Mesmas janelas das lojas
+- **Médias Móveis**: Mesmas médias móveis das lojas
+- **Otimização**: Window functions + dropDuplicates para performance
+
+#### 3. **Análise de Malha Logística**
+- **Arquivo**: `data/silver/malha_cds_silver.py`
+- **Propósito**: Análise de complexidade da rede logística CD→CD e CD→Loja
+- **Saída**: JSON com dados para visualização de grafos
+- **Métricas**: 
+  - Componentes fortemente conectadas (SCCs)
+  - Níveis hierárquicos
+  - Graus de entrada/saída
+  - Detecção de ciclos
+- **Visualização**: Plotly interativo com NetworkX
 
 ## 🏆 Camada Gold
 
