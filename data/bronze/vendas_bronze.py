@@ -22,7 +22,7 @@
 # Criar widgets para configurações
 dbutils.widgets.dropdown("modo_execucao", "TEST", ["TEST", "RUN"], "Modo de Execução")
 dbutils.widgets.dropdown("ambiente_tabela", "DEV", ["DEV", "PROD"], "Ambiente da Tabela")
-dbutils.widgets.text("sample_size", "100000", "Tamanho do Sample (apenas para TEST)")
+dbutils.widgets.text("sample_size", "10000", "Tamanho do Sample (apenas para TEST)")
 
 # Obter valores dos widgets
 MODO_EXECUCAO = dbutils.widgets.get("modo_execucao")
