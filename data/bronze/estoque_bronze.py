@@ -410,10 +410,10 @@ gef_cd_agregado_df = gef_plano_df.groupBy("CdFilialEntrega", "CdSku", "DtAtual")
     F.sum("TRANSITO").alias("TRANSITO"),
     F.sum("ESTOQUE_PROJETADO").alias("ESTOQUE_PROJETADO"),
     F.sum("COBERTURA_ATUAL_C_TRANSITO_DIAS").alias("COBERTURA_ATUAL_C_TRANSITO_DIAS"),  # Soma
-    F.avg("MEDIA_3").alias("MEDIA_3"),  # Média
-    F.avg("MEDIA_6").alias("MEDIA_6"),  # Média
-    F.avg("MEDIA_9").alias("MEDIA_9"),  # Média
-    F.avg("MEDIA_12").alias("MEDIA_12"),  # Média
+    F.sum("MEDIA_3").alias("MEDIA_3"),  # Soma
+    F.sum("MEDIA_6").alias("MEDIA_6"),  # Soma
+    F.sum("MEDIA_9").alias("MEDIA_9"),  # Soma
+    F.sum("MEDIA_12").alias("MEDIA_12"),  # Soma
     F.sum("DDV_SO").alias("DDV_SO"),
     F.sum("DDV_CO").alias("DDV_CO"),
     F.sum("CLUSTER_OBG").alias("CLUSTER_OBG"),  # Count de lojas atendidas
