@@ -84,9 +84,9 @@ print("🏪 Processando estoque de LOJAS...")
 # Carregar dados de estoque das lojas
 estoque_lojas_df = (
     spark.table("data_engineering_prd.app_logistica.gi_boss_qualidade_estoque")
-    .filter(F.col("DtAtual") >= hoje_str)
-    .filter(F.col("StLoja") == "ATIVA")
-    .filter(F.col("DsEstoqueLojaDeposito") == "L")
+        .filter(F.col("DtAtual") >= hoje_str)
+        .filter(F.col("StLoja") == "ATIVA")
+        .filter(F.col("DsEstoqueLojaDeposito") == "L")
 )
 
 # Aplicar sample se configurado para desenvolvimento
@@ -142,25 +142,25 @@ print("🔄 Transformando dados de estoque LOJAS...")
 # Transformar e limpar dados de estoque das lojas
 estoque_lojas_processado_df = (
     estoque_lojas_df
-    # .select(
-    #     "CdFilial", 
-    #     "CdSku",
-    #     "DsSku",
-    #     "DsSetor",
-    #     "DsCurva",
-    #     "DsCurvaAbcLoja",
-    #     "StLinha",
-    #     "DsObrigatorio",
-    #     "DsVoltagem",
-    #     F.col("DsTipoEntrega").alias("TipoEntrega"),
-    #     F.col("CdEstoqueFilialAbastecimento").alias("QtdEstoqueCDVinculado"),
-    #     (F.col("VrTotalVv")/F.col("VrVndCmv")).alias("DDE"),
-    #     F.col("QtEstoqueBoaOff").alias("EstoqueLoja"),
-    #     F.col("DsFaixaDde").alias("ClassificacaoDDE"),
-    #     F.col("data_ingestao"),
-    #     F.date_format(F.col("data_ingestao"), "yyyy-MM-dd").alias("DtAtual")    
-    # )
-    # .dropDuplicates(["DtAtual", "CdSku", "CdFilial"])
+        # .select(
+        #     "CdFilial", 
+        #     "CdSku",
+        #     "DsSku",
+        #     "DsSetor",
+        #     "DsCurva",
+        #     "DsCurvaAbcLoja",
+        #     "StLinha",
+        #     "DsObrigatorio",
+        #     "DsVoltagem",
+        #     F.col("DsTipoEntrega").alias("TipoEntrega"),
+        #     F.col("CdEstoqueFilialAbastecimento").alias("QtdEstoqueCDVinculado"),
+        #     (F.col("VrTotalVv")/F.col("VrVndCmv")).alias("DDE"),
+        #     F.col("QtEstoqueBoaOff").alias("EstoqueLoja"),
+        #     F.col("DsFaixaDde").alias("ClassificacaoDDE"),
+        #     F.col("data_ingestao"),
+        #     F.date_format(F.col("data_ingestao"), "yyyy-MM-dd").alias("DtAtual")    
+        # )
+        # .dropDuplicates(["DtAtual", "CdSku", "CdFilial"])
     .withColumn("TipoEstoque", F.lit("LOJA"))
     .withColumn("DDE", (F.col("VrTotalVv")/F.col("VrVndCmv")))
     .withColumn("DtAtual", F.date_format(F.col("data_ingestao"), "yyyy-MM-dd"))
@@ -183,25 +183,25 @@ print("🔄 Transformando dados de estoque DEPÓSITOS...")
 # Transformar e limpar dados de estoque dos depósitos
 estoque_cds_processado_df = (
     estoque_cds_df
-    # .select(
-    #     "CdFilial", 
-    #     "CdSku",
-    #     "DsSku",
-    #     "DsSetor",
-    #     "DsCurva",
-    #     "DsCurvaAbcLoja",
-    #     "StLinha",
-    #     "DsObrigatorio",
-    #     "DsVoltagem",
-    #     F.col("DsTipoEntrega").alias("TipoEntrega"),
-    #     F.col("CdEstoqueFilialAbastecimento").alias("QtdEstoqueCDVinculado"),
-    #     (F.col("VrTotalVv")/F.col("VrVndCmv")).alias("DDE"),
+        # .select(
+        #     "CdFilial", 
+        #     "CdSku",
+        #     "DsSku",
+        #     "DsSetor",
+        #     "DsCurva",
+        #     "DsCurvaAbcLoja",
+        #     "StLinha",
+        #     "DsObrigatorio",
+        #     "DsVoltagem",
+        #     F.col("DsTipoEntrega").alias("TipoEntrega"),
+        #     F.col("CdEstoqueFilialAbastecimento").alias("QtdEstoqueCDVinculado"),
+        #     (F.col("VrTotalVv")/F.col("VrVndCmv")).alias("DDE"),
     #     F.col("QtEstoqueBoaOff").alias("EstoqueDeposito"),
-    #     F.col("DsFaixaDde").alias("ClassificacaoDDE"),
-    #     F.col("data_ingestao"),
-    #     F.date_format(F.col("data_ingestao"), "yyyy-MM-dd").alias("DtAtual")    
-    # )
-    # .dropDuplicates(["DtAtual", "CdSku", "CdFilial"])
+        #     F.col("DsFaixaDde").alias("ClassificacaoDDE"),
+        #     F.col("data_ingestao"),
+        #     F.date_format(F.col("data_ingestao"), "yyyy-MM-dd").alias("DtAtual")    
+        # )
+        # .dropDuplicates(["DtAtual", "CdSku", "CdFilial"])
     .withColumn("TipoEstoque", F.lit("CD"))
     .withColumn("DDE", (F.col("VrTotalVv")/F.col("VrVndCmv")))
     .withColumn("DtAtual", F.date_format(F.col("data_ingestao"), "yyyy-MM-dd")
@@ -472,6 +472,50 @@ gef_df = gef_df.cache()
 
 print(f"📊 Registros do GEF carregados: {gef_df.count()}")
 
+# Validação de duplicatas nas chaves de join
+print("🔍 Validando chaves de join para evitar multiplicação de registros...")
+
+# Verificar duplicatas no GEF
+duplicatas_gef = gef_df.groupBy("CdFilial", "CdSku").count().filter(F.col("count") > 1)
+total_duplicatas_gef = duplicatas_gef.count()
+
+print(f"📊 Validação de duplicatas GEF:")
+print(f"  • Chaves duplicadas no GEF: {total_duplicatas_gef:,}")
+
+if total_duplicatas_gef > 0:
+    print("⚠️  ATENÇÃO: GEF contém chaves duplicadas! Isso pode causar multiplicação de registros.")
+    print("🔧 Solução: Remover duplicatas do GEF antes do join")
+    
+    # Remover duplicatas do GEF mantendo apenas o primeiro registro
+    gef_df = gef_df.dropDuplicates(["CdFilial", "CdSku"]).cache()
+    print(f"✅ Duplicatas removidas do GEF. Novos registros: {gef_df.count():,}")
+else:
+    print("✅ GEF não contém chaves duplicadas")
+
+# Verificar duplicatas no estoque das lojas
+duplicatas_lojas = estoque_lojas_processado_df.groupBy("CdFilial", "CdSku").count().filter(F.col("count") > 1)
+total_duplicatas_lojas = duplicatas_lojas.count()
+
+print(f"📊 Validação de duplicatas Estoque Lojas:")
+print(f"  • Chaves duplicadas no estoque lojas: {total_duplicatas_lojas:,}")
+
+if total_duplicatas_lojas > 0:
+    print("⚠️  ATENÇÃO: Estoque lojas contém chaves duplicadas!")
+else:
+    print("✅ Estoque lojas não contém chaves duplicadas")
+
+# Verificar duplicatas no estoque dos depósitos
+duplicatas_cds = estoque_cds_processado_df.groupBy("CdFilial", "CdSku").count().filter(F.col("count") > 1)
+total_duplicatas_cds = duplicatas_cds.count()
+
+print(f"📊 Validação de duplicatas Estoque Depósitos:")
+print(f"  • Chaves duplicadas no estoque depósitos: {total_duplicatas_cds:,}")
+
+if total_duplicatas_cds > 0:
+    print("⚠️  ATENÇÃO: Estoque depósitos contém chaves duplicadas!")
+else:
+    print("✅ Estoque depósitos não contém chaves duplicadas")
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -484,6 +528,14 @@ print(f"📊 Registros do GEF carregados: {gef_df.count()}")
 
 print("🔗 Realizando join entre estoque LOJAS e dados GEF...")
 
+# Validação antes do join
+registros_antes_join_lojas = estoque_lojas_processado_df.count()
+registros_gef = gef_df.count()
+
+print(f"📊 Validação antes do join LOJAS:")
+print(f"  • Registros estoque lojas: {registros_antes_join_lojas:,}")
+print(f"  • Registros GEF: {registros_gef:,}")
+
 # Join entre estoque das lojas e dados do GEF
 estoque_lojas_com_gef_df = (
     estoque_lojas_processado_df
@@ -495,7 +547,21 @@ estoque_lojas_com_gef_df = (
     .withColumn("TipoEstoque", F.lit("LOJA"))
 ).cache()
 
-print(f"✅ Join LOJAS + GEF concluído. Registros: {estoque_lojas_com_gef_df.count()}")
+# Validação após o join
+registros_apos_join_lojas = estoque_lojas_com_gef_df.count()
+registros_com_match_lojas = estoque_lojas_com_gef_df.filter(F.col("ESTOQUE_SEGURANCA").isNotNull()).count()
+percentual_match_lojas = (registros_com_match_lojas / registros_apos_join_lojas) * 100
+
+print(f"📊 Validação após join LOJAS:")
+print(f"  • Registros após join: {registros_apos_join_lojas:,}")
+print(f"  • Registros com match GEF: {registros_com_match_lojas:,}")
+print(f"  • Percentual de match: {percentual_match_lojas:.2f}%")
+print(f"  • Aumento de registros: {registros_apos_join_lojas - registros_antes_join_lojas:,}")
+
+if registros_apos_join_lojas != registros_antes_join_lojas:
+    print("⚠️  ATENÇÃO: Join gerou aumento de registros!")
+else:
+    print("✅ Join manteve quantidade de registros (left join correto)")
 
 # COMMAND ----------
 
@@ -509,6 +575,13 @@ print(f"✅ Join LOJAS + GEF concluído. Registros: {estoque_lojas_com_gef_df.co
 
 print("🔗 Realizando join entre estoque DEPÓSITOS e dados GEF...")
 
+# Validação antes do join
+registros_antes_join_cds = estoque_cds_processado_df.count()
+
+print(f"📊 Validação antes do join DEPÓSITOS:")
+print(f"  • Registros estoque depósitos: {registros_antes_join_cds:,}")
+print(f"  • Registros GEF: {registros_gef:,}")
+
 # Join entre estoque dos depósitos e dados do GEF
 estoque_cds_com_gef_df = (
     estoque_cds_processado_df
@@ -520,7 +593,21 @@ estoque_cds_com_gef_df = (
     .withColumn("TipoEstoque", F.lit("CD"))
 ).cache()
 
-print(f"✅ Join DEPÓSITOS + GEF concluído. Registros: {estoque_cds_com_gef_df.count()}")
+# Validação após o join
+registros_apos_join_cds = estoque_cds_com_gef_df.count()
+registros_com_match_cds = estoque_cds_com_gef_df.filter(F.col("ESTOQUE_SEGURANCA").isNotNull()).count()
+percentual_match_cds = (registros_com_match_cds / registros_apos_join_cds) * 100
+
+print(f"📊 Validação após join DEPÓSITOS:")
+print(f"  • Registros após join: {registros_apos_join_cds:,}")
+print(f"  • Registros com match GEF: {registros_com_match_cds:,}")
+print(f"  • Percentual de match: {percentual_match_cds:.2f}%")
+print(f"  • Aumento de registros: {registros_apos_join_cds - registros_antes_join_cds:,}")
+
+if registros_apos_join_cds != registros_antes_join_cds:
+    print("⚠️  ATENÇÃO: Join gerou aumento de registros!")
+else:
+    print("✅ Join manteve quantidade de registros (left join correto)")
 
 # COMMAND ----------
 
