@@ -122,12 +122,7 @@ print("🏗️ Analisando estrutura CD→CD e CD→Loja...")
 print("📋 IMPORTANTE: CdFilialAtende e CdFilialEntrega são SEMPRE CDs, CdLoja é SEMPRE LOJA")
 
 # Converter para Pandas para análise mais eficiente
-# Usar sample para evitar problemas de memória com tabelas grandes
-if total_registros > 100000:
-    print(f"⚠️ Tabela grande ({total_registros:,} registros). Usando sample de 10%...")
-    plano_pandas = plano_df.sample(0.1).toPandas()
-else:
-    plano_pandas = plano_df.toPandas()
+plano_pandas = plano_df.toPandas()
 
 print(f"\n📊 Análise CD→CD (quando CdFilialAtende != CdFilialEntrega):")
 conexoes_cd_cd = plano_pandas[
