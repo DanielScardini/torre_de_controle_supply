@@ -373,11 +373,60 @@ print(f"  • Registros estoque depósitos: {registros_antes_join_cds:,}")
 print(f"  • Registros GEF: {registros_gef:,}")
 print(f"  • Chaves de join: CdFilial + CdSku + DtAtual")
 
-# Join entre estoque dos depósitos e dados do GEF (incluindo data)
+# Carregar plano de abastecimento para agregar GEF das lojas por CD
+print("📋 Carregando plano de abastecimento para agregar GEF das lojas por CD...")
+
+TABELA_PLANO_ABASTECIMENTO = "data_engineering_prd.context_logistica.planoabastecimento"
+
+plano_df = (
+    spark.table(TABELA_PLANO_ABASTECIMENTO)
+    .select("CdFilialEntrega", "CdLoja")
+    .distinct()
+)
+
+print(f"📊 Registros do plano de abastecimento: {plano_df.count()}")
+
+# Agregar GEF das lojas por CD através do plano de abastecimento
+print("🔄 Agregando métricas GEF das lojas por CD...")
+
+# Join GEF com plano por CdFilial (loja)
+gef_plano_df = gef_df.join(
+    plano_df,
+    on=gef_df["CdFilial"] == plano_df["CdLoja"],
+    how="inner"
+)
+
+# Group by CdFilialEntrega (CD) - somando todas as métricas GEF
+gef_cd_agregado_df = gef_plano_df.groupBy("CdFilialEntrega", "CdSku", "DtAtual").agg(
+    F.sum("ESTOQUE_SEGURANCA").alias("ESTOQUE_SEGURANCA"),
+    F.sum("LEADTIME_MEDIO").alias("LEADTIME_MEDIO"),
+    F.sum("COBERTURA_ES_DIAS").alias("COBERTURA_ES_DIAS"),
+    F.sum("ESTOQUE_ALVO").alias("ESTOQUE_ALVO"),
+    F.sum("COBERTURA_ATUAL").alias("COBERTURA_ATUAL"),
+    F.sum("COBERTURA_ALVO").alias("COBERTURA_ALVO"),
+    F.sum("DDV_SEM_OUTLIER").alias("DDV_SEM_OUTLIER"),
+    F.sum("DDV_FUTURO").alias("DDV_FUTURO"),
+    F.sum("GRADE").alias("GRADE"),
+    F.sum("TRANSITO").alias("TRANSITO"),
+    F.sum("ESTOQUE_PROJETADO").alias("ESTOQUE_PROJETADO"),
+    F.sum("COBERTURA_ATUAL_C_TRANSITO_DIAS").alias("COBERTURA_ATUAL_C_TRANSITO_DIAS"),
+    F.sum("MEDIA_3").alias("MEDIA_3"),
+    F.sum("MEDIA_6").alias("MEDIA_6"),
+    F.sum("MEDIA_9").alias("MEDIA_9"),
+    F.sum("MEDIA_12").alias("MEDIA_12"),
+    F.sum("DDV_SO").alias("DDV_SO"),
+    F.sum("DDV_CO").alias("DDV_CO"),
+    F.sum("CLUSTER_OBG").alias("CLUSTER_OBG"),  # Count de lojas atendidas
+    F.sum("CLUSTER_SUG").alias("CLUSTER_SUG")   # Count de lojas atendidas
+).withColumnRenamed("CdFilialEntrega", "CdFilial")
+
+print(f"📊 Registros GEF agregados por CD: {gef_cd_agregado_df.count()}")
+
+# Join entre estoque dos depósitos e GEF agregado por CD
 estoque_cds_com_gef_df = (
     estoque_cds_processado_df
     .join(
-        gef_df,
+        gef_cd_agregado_df,
         on=["CdFilial", "CdSku", "DtAtual"],
         how="left"
     )
@@ -448,7 +497,7 @@ estoque_cds_gef_com_metadados_df = estoque_cds_com_gef_df.withColumn(
     F.current_date()
 ).withColumn(
     "FonteDados",
-    F.lit("data_engineering_prd.app_logistica.gi_boss_qualidade_estoque + databox.logistica_comum.gef_visao_estoque_lojas")
+    F.lit("data_engineering_prd.app_logistica.gi_boss_qualidade_estoque + databox.logistica_comum.gef_visao_estoque_lojas + data_engineering_prd.context_logistica.planoabastecimento")
 ).withColumn(
     "VersaoProcessamento",
     F.lit("1.0")
