@@ -409,7 +409,7 @@ gef_cd_agregado_df = gef_plano_df.groupBy("CdFilialEntrega", "CdSku", "DtAtual")
     F.sum("GRADE").alias("GRADE"),
     F.sum("TRANSITO").alias("TRANSITO"),
     F.sum("ESTOQUE_PROJETADO").alias("ESTOQUE_PROJETADO"),
-    (F.avg("COBERTURA_ATUAL") * F.sum("TRANSITO")).alias("COBERTURA_ATUAL_C_TRANSITO_DIAS"),  # TRANSITO*
+    F.sum("COBERTURA_ATUAL_C_TRANSITO_DIAS").alias("COBERTURA_ATUAL_C_TRANSITO_DIAS"),  # Soma
     F.avg("MEDIA_3").alias("MEDIA_3"),  # Média
     F.avg("MEDIA_6").alias("MEDIA_6"),  # Média
     F.avg("MEDIA_9").alias("MEDIA_9"),  # Média
