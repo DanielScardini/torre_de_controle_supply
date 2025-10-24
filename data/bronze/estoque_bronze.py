@@ -40,7 +40,7 @@ TIMEZONE_SP = timezone('America/Sao_Paulo')
 
 # Usar samples para desenvolvimento (evitar gasto de processamento)
 USAR_SAMPLES: bool = True  # Alterar para False em produção
-SAMPLE_SIZE: int = 100000  # Tamanho do sample para desenvolvimento
+SAMPLE_SIZE: int = 10000  # Tamanho do sample para desenvolvimento
 
 # Inicialização do Spark
 spark = SparkSession.builder.appName("estoque_bronze").getOrCreate()
@@ -55,7 +55,6 @@ print(f"📝 Data string: {hoje_str}")
 print(f"🔢 Data int: {hoje_int}")
 print(f"🌍 Timezone: {TIMEZONE_SP}")
 
-<<<<<<< HEAD
 # =============================================================================
 # CONFIGURAÇÕES DE PROCESSAMENTO
 # =============================================================================
@@ -143,26 +142,28 @@ print("🔄 Transformando dados de estoque LOJAS...")
 # Transformar e limpar dados de estoque das lojas
 estoque_lojas_processado_df = (
     estoque_lojas_df
-    .select(
-        "CdFilial", 
-        "CdSku",
-        "DsSku",
-        "DsSetor",
-        "DsCurva",
-        "DsCurvaAbcLoja",
-        "StLinha",
-        "DsObrigatorio",
-        "DsVoltagem",
-        F.col("DsTipoEntrega").alias("TipoEntrega"),
-        F.col("CdEstoqueFilialAbastecimento").alias("QtdEstoqueCDVinculado"),
-        (F.col("VrTotalVv")/F.col("VrVndCmv")).alias("DDE"),
-        F.col("QtEstoqueBoaOff").alias("EstoqueLoja"),
-        F.col("DsFaixaDde").alias("ClassificacaoDDE"),
-        F.col("data_ingestao"),
-        F.date_format(F.col("data_ingestao"), "yyyy-MM-dd").alias("DtAtual")    
-    )
-    .dropDuplicates(["DtAtual", "CdSku", "CdFilial"])
+    # .select(
+    #     "CdFilial", 
+    #     "CdSku",
+    #     "DsSku",
+    #     "DsSetor",
+    #     "DsCurva",
+    #     "DsCurvaAbcLoja",
+    #     "StLinha",
+    #     "DsObrigatorio",
+    #     "DsVoltagem",
+    #     F.col("DsTipoEntrega").alias("TipoEntrega"),
+    #     F.col("CdEstoqueFilialAbastecimento").alias("QtdEstoqueCDVinculado"),
+    #     (F.col("VrTotalVv")/F.col("VrVndCmv")).alias("DDE"),
+    #     F.col("QtEstoqueBoaOff").alias("EstoqueLoja"),
+    #     F.col("DsFaixaDde").alias("ClassificacaoDDE"),
+    #     F.col("data_ingestao"),
+    #     F.date_format(F.col("data_ingestao"), "yyyy-MM-dd").alias("DtAtual")    
+    # )
+    # .dropDuplicates(["DtAtual", "CdSku", "CdFilial"])
     .withColumn("TipoEstoque", F.lit("LOJA"))
+    .withColumn("DDE", (F.col("VrTotalVv")/F.col("VrVndCmv")))
+    .withColumn("DtAtual", F.date_format(F.col("data_ingestao"), "yyyy-MM-dd"))
 ).cache()
 
 print(f"✅ Registros de estoque LOJAS processados: {estoque_lojas_processado_df.count()}")
@@ -182,26 +183,29 @@ print("🔄 Transformando dados de estoque DEPÓSITOS...")
 # Transformar e limpar dados de estoque dos depósitos
 estoque_cds_processado_df = (
     estoque_cds_df
-    .select(
-        "CdFilial", 
-        "CdSku",
-        "DsSku",
-        "DsSetor",
-        "DsCurva",
-        "DsCurvaAbcLoja",
-        "StLinha",
-        "DsObrigatorio",
-        "DsVoltagem",
-        F.col("DsTipoEntrega").alias("TipoEntrega"),
-        F.col("CdEstoqueFilialAbastecimento").alias("QtdEstoqueCDVinculado"),
-        (F.col("VrTotalVv")/F.col("VrVndCmv")).alias("DDE"),
-        F.col("QtEstoqueBoaOff").alias("EstoqueDeposito"),
-        F.col("DsFaixaDde").alias("ClassificacaoDDE"),
-        F.col("data_ingestao"),
-        F.date_format(F.col("data_ingestao"), "yyyy-MM-dd").alias("DtAtual")    
-    )
-    .dropDuplicates(["DtAtual", "CdSku", "CdFilial"])
-    .withColumn("TipoEstoque", F.lit("DEPOSITO"))
+    # .select(
+    #     "CdFilial", 
+    #     "CdSku",
+    #     "DsSku",
+    #     "DsSetor",
+    #     "DsCurva",
+    #     "DsCurvaAbcLoja",
+    #     "StLinha",
+    #     "DsObrigatorio",
+    #     "DsVoltagem",
+    #     F.col("DsTipoEntrega").alias("TipoEntrega"),
+    #     F.col("CdEstoqueFilialAbastecimento").alias("QtdEstoqueCDVinculado"),
+    #     (F.col("VrTotalVv")/F.col("VrVndCmv")).alias("DDE"),
+    #     F.col("QtEstoqueBoaOff").alias("EstoqueDeposito"),
+    #     F.col("DsFaixaDde").alias("ClassificacaoDDE"),
+    #     F.col("data_ingestao"),
+    #     F.date_format(F.col("data_ingestao"), "yyyy-MM-dd").alias("DtAtual")    
+    # )
+    # .dropDuplicates(["DtAtual", "CdSku", "CdFilial"])
+    .withColumn("TipoEstoque", F.lit("CD"))
+    .withColumn("DDE", (F.col("VrTotalVv")/F.col("VrVndCmv")))
+    .withColumn("DtAtual", F.date_format(F.col("data_ingestao"), "yyyy-MM-dd")
+)
 ).cache()
 
 print(f"✅ Registros de estoque DEPÓSITOS processados: {estoque_cds_processado_df.count()}")
@@ -222,11 +226,10 @@ estatisticas_lojas_df = estoque_lojas_processado_df.agg(
     F.count("*").alias("Total_Registros"),
     F.countDistinct("CdFilial").alias("Filiais_Unicas"),
     F.countDistinct("CdSku").alias("SKUs_Unicos"),
-    F.sum("EstoqueLoja").alias("Estoque_Total"),
-    F.avg("DDE").alias("DDE_Medio")
+    F.median("DDE").alias("DDE_Mediano")
 )
 
-# display(estatisticas_lojas_df)
+display(estatisticas_lojas_df)
 
 # Mostrar estatísticas dos depósitos
 print("📈 Estatísticas de estoque DEPÓSITOS:")
@@ -234,11 +237,10 @@ estatisticas_cds_df = estoque_cds_processado_df.agg(
     F.count("*").alias("Total_Registros"),
     F.countDistinct("CdFilial").alias("Filiais_Unicas"),
     F.countDistinct("CdSku").alias("SKUs_Unicos"),
-    F.sum("EstoqueDeposito").alias("Estoque_Total"),
-    F.avg("DDE").alias("DDE_Medio")
+    F.median("DDE").alias("DDE_Mediano")
 )
 
-# display(estatisticas_cds_df)
+display(estatisticas_cds_df)
 
 # COMMAND ----------
 
@@ -417,101 +419,11 @@ print("✅ PROCESSAMENTO CONCLUÍDO COM SUCESSO!")
 print("🏪 Dados de estoque de lojas processados")
 print("🏭 Dados de estoque de depósitos processados")
 print("📊 Estrutura: Filial x SKU x Data com métricas de estoque")
-=======
-# COMMAND ----------
-
-def load_estoque_loja_data(spark: SparkSession) -> DataFrame:
-    """
-    Carrega dados de estoque das lojas ativas.
-    
-    Args:
-        spark: Sessão do Spark
-        current_year: Ano atual para filtro de partição
-        
-    Returns:
-        DataFrame com dados de estoque das lojas, incluindo:
-        - Informações da filial e SKU
-        - Dados de estoque e classificação
-        - Métricas de DDE e faixas
-    """
-    return (
-        spark.read.table("data_engineering_prd.app_logistica.gi_boss_qualidade_estoque")
-        .filter(F.col("DtAtual") == hoje_str)
-        .filter(F.col("StLoja") == "ATIVA")
-        .filter(F.col("DsEstoqueLojaDeposito") == "L")
-        # .select(
-        #     "CdFilial", 
-        #     "CdSku",
-        #     "DsSku",
-        #     "DsSetor",
-        #     "DsCurva",
-        #     "DsCurvaAbcLoja",
-        #     "StLinha",
-        #     "DsObrigatorio",
-        #     "DsVoltagem",
-        #     F.col("DsTipoEntrega").alias("TipoEntrega"),
-        #     F.col("CdEstoqueFilialAbastecimento").alias("QtdEstoqueCDVinculado"),
-        #     (F.col("VrTotalVv")/F.col("VrVndCmv")).alias("DDE"),
-        #     F.col("QtEstoqueBoaOff").alias("EstoqueLoja"),
-        #     F.col("DsFaixaDde").alias("ClassificacaoDDE"),
-        #     F.col("data_ingestao"),
-        #     F.date_format(F.col("data_ingestao"), "yyyy-MM-dd").alias("DtAtual")    
-        # )
-        # .dropDuplicates(["DtAtual", "CdSku", "CdFilial"])
-    )
-
-df_estoque_loja = load_estoque_loja_data(spark)
-df_estoque_loja.display()
-
-# COMMAND ----------
-
-def load_estoque_CD_data(spark: SparkSession) -> DataFrame:
-    """
-    Carrega dados de estoque das lojas ativas.
-    
-    Args:
-        spark: Sessão do Spark
-        current_year: Ano atual para filtro de partição
-        
-    Returns:
-        DataFrame com dados de estoque das lojas, incluindo:
-        - Informações da filial e SKU
-        - Dados de estoque e classificação
-        - Métricas de DDE e faixas
-    """
-    return (
-        spark.read.table("data_engineering_prd.app_logistica.gi_boss_qualidade_estoque")
-        .filter(F.col("DtAtual") == hoje_str)
-        .filter(F.col("DsEstoqueLojaDeposito") == "D")
-        # .select(
-        #     "CdFilial", 
-        #     "CdSku",
-        #     "DsSku",
-        #     "DsSetor",
-        #     "DsCurva",
-        #     "DsCurvaAbcLoja",
-        #     "StLinha",
-        #     "DsObrigatorio",
-        #     "DsVoltagem",
-        #     F.col("DsTipoEntrega").alias("TipoEntrega"),
-        #     F.col("CdEstoqueFilialAbastecimento").alias("QtdEstoqueCDVinculado"),
-        #     (F.col("VrTotalVv")/F.col("VrVndCmv")).alias("DDE"),
-        #     F.col("QtEstoqueBoaOff").alias("EstoqueLoja"),
-        #     F.col("DsFaixaDde").alias("ClassificacaoDDE"),
-        #     F.col("data_ingestao"),
-        #     F.date_format(F.col("data_ingestao"), "yyyy-MM-dd").alias("DtAtual")    
-        # )
-        # .dropDuplicates(["DtAtual", "CdSku", "CdFilial"])
-    )
-
-df_estoque_CD = load_estoque_loja_data(spark)
-df_estoque_CD.display()
 
 # COMMAND ----------
 
 # MAGIC %sql select * from databox.logistica_comum.gef_visao_estoque_lojas
 # MAGIC
 # MAGIC -- TODO - CODIGO_ITEM = CdSku 
-# MAGIC -- Filial = CdFilial com 4 ultimos digitos em inteiro
-# MAGIC -- 
->>>>>>> f5f6c4cf77d25fc199066c185a40e15a9787c3d1
+# MAGIC -- FILIALAJ = CdFilial 
+# MAGIC -- select (CdFilial, CdSku, ESTOQUE_SEGURANCA, LEADTIME_MEDIO, COBERTURA_ES_DIAS, ESTOQUE_ALVO, COBERTURA_ATUAL, COBERTURA_ALVO, DDV_SEM_OUTLIER, DDV_FUTURO, GRADE, TRANSITO, ESTOQUE_PROJETADO, COBERTURA_ATUAL_C_TRANISTO_DIAS, MEDIA_3, MEDIA_6, MEDIA_9, MEDIA_12, DDV_SO, DDV_CO, DATA_ANALISE, CLUSTER_OBG, CLUSTER_SUG)
