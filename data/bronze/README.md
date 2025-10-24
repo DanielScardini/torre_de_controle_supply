@@ -34,6 +34,20 @@ Para uma visão completa das tabelas implementadas, consulte o [Catálogo de Tab
 - **Cache**: Implementado com limpeza automática
 - **Samples**: Suporte para desenvolvimento
 
+## ⚙️ Configurações de Ambiente
+
+### Widgets Interativos
+Os notebooks utilizam widgets do Databricks para configuração interativa:
+
+- **Modo de Execução**: `TEST` (com samples) ou `RUN` (completo)
+- **Ambiente da Tabela**: `DEV` (desenvolvimento) ou `PROD` (produção)
+- **Tamanho do Sample**: Configurável via widget (apenas para TEST)
+
+### Interface de Configuração
+- **Dropdowns**: Para seleção de modo e ambiente
+- **Campo de Texto**: Para tamanho do sample
+- **Sem Edição de Código**: Configuração direta na interface
+
 ## 📋 Metadados Padrão
 
 Todas as tabelas incluem:
@@ -44,12 +58,28 @@ Todas as tabelas incluem:
 
 ## 🚀 Execução
 
-Os notebooks podem ser executados no Databricks com as seguintes configurações:
-- **Desenvolvimento**: `USAR_SAMPLES=True`
-- **Produção**: `USAR_SAMPLES=False`
+### Via Widgets (Recomendado)
+1. Abrir o notebook no Databricks
+2. Configurar os widgets na parte superior do notebook
+3. Executar o notebook
+
+### Configurações Disponíveis
+- **Desenvolvimento**: `TEST` + `DEV` + Sample configurável
+- **Teste Produção**: `TEST` + `PROD` + Sample configurável  
+- **Produção Real**: `RUN` + `PROD` (sem samples)
+
+### Exemplo de Uso
+```python
+# Widgets configurados automaticamente
+# Modo de Execução: TEST
+# Ambiente da Tabela: DEV
+# Tamanho do Sample: 100000
+# Resultado: supply_dev_* com samples
+```
 
 ## 📚 Documentação Adicional
 
 - [Catálogo Completo de Tabelas](../CATALOGO_TABELAS.md)
 - [Arquitetura de Dados](../README.md)
 - [Guia de Desenvolvimento](../../DEVELOPMENT.md)
+- [Configurações de Ambiente](CONFIGURACOES_AMBIENTE.md)

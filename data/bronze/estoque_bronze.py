@@ -12,6 +12,31 @@
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ## Configurações de Ambiente via Widgets
+# MAGIC
+# MAGIC Este bloco cria widgets interativos para configurar o ambiente de execução.
+# MAGIC Os widgets permitem alterar os parâmetros diretamente na interface do Databricks.
+
+# COMMAND ----------
+
+# Criar widgets para configurações
+dbutils.widgets.dropdown("modo_execucao", "TEST", ["TEST", "RUN"], "Modo de Execução")
+dbutils.widgets.dropdown("ambiente_tabela", "DEV", ["DEV", "PROD"], "Ambiente da Tabela")
+dbutils.widgets.text("sample_size", "10000", "Tamanho do Sample (apenas para TEST)")
+
+# Obter valores dos widgets
+MODO_EXECUCAO = dbutils.widgets.get("modo_execucao")
+AMBIENTE_TABELA = dbutils.widgets.get("ambiente_tabela")
+SAMPLE_SIZE = int(dbutils.widgets.get("sample_size"))
+
+print(f"🎛️ Widgets configurados:")
+print(f"  • Modo de Execução: {MODO_EXECUCAO}")
+print(f"  • Ambiente da Tabela: {AMBIENTE_TABELA}")
+print(f"  • Tamanho do Sample: {SAMPLE_SIZE:,}")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## Imports e Configuração Inicial
 
 # COMMAND ----------
@@ -27,9 +52,9 @@ from pytz import timezone
 # CONFIGURAÇÕES GLOBAIS
 # =============================================================================
 
-# Nome das tabelas de destino na camada Bronze
-TABELA_BRONZE_ESTOQUE_LOJA: str = "databox.bcg_comum.supply_bronze_estoque_lojas"
-TABELA_BRONZE_ESTOQUE_CD: str = "databox.bcg_comum.supply_bronze_estoque_cds"
+# Nome das tabelas de destino na camada Bronze (parametrizado por ambiente)
+TABELA_BRONZE_ESTOQUE_LOJA: str = f"databox.bcg_comum.supply_{AMBIENTE_TABELA.lower()}_estoque_lojas"
+TABELA_BRONZE_ESTOQUE_CD: str = f"databox.bcg_comum.supply_{AMBIENTE_TABELA.lower()}_estoque_cds"
 
 # Timezone São Paulo (GMT-3)
 TIMEZONE_SP = timezone('America/Sao_Paulo')
@@ -38,9 +63,8 @@ TIMEZONE_SP = timezone('America/Sao_Paulo')
 # CONFIGURAÇÕES DE DESENVOLVIMENTO
 # =============================================================================
 
-# Usar samples para desenvolvimento (evitar gasto de processamento)
-USAR_SAMPLES: bool = True  # Alterar para False em produção
-SAMPLE_SIZE: int = 10000  # Tamanho do sample para desenvolvimento
+# Usar samples baseado no modo de execução
+USAR_SAMPLES: bool = (MODO_EXECUCAO == "TEST")
 
 # Inicialização do Spark
 spark = SparkSession.builder.appName("estoque_bronze").getOrCreate()
@@ -60,12 +84,16 @@ print(f"🌍 Timezone: {TIMEZONE_SP}")
 # =============================================================================
 print("=" * 80)
 print("🔧 CONFIGURAÇÕES DE PROCESSAMENTO:")
+print(f"  • Modo de Execução: {MODO_EXECUCAO}")
+print(f"  • Ambiente da Tabela: {AMBIENTE_TABELA}")
+print(f"  • Tabela Lojas: {TABELA_BRONZE_ESTOQUE_LOJA}")
+print(f"  • Tabela CDs: {TABELA_BRONZE_ESTOQUE_CD}")
 print(f"  • Usar Samples: {USAR_SAMPLES}")
 if USAR_SAMPLES:
     print(f"  • Tamanho do Sample: {SAMPLE_SIZE:,} registros")
-    print("  • ⚠️  MODO DESENVOLVIMENTO - Alterar USAR_SAMPLES=False para produção")
+    print("  • ⚠️  MODO TEST - Usando samples para desenvolvimento")
 else:
-    print("  • ✅ MODO PRODUÇÃO - Processamento completo")
+    print("  • ✅ MODO RUN - Processamento completo")
 print("=" * 80)
 
 # COMMAND ----------
