@@ -28,7 +28,7 @@
 # Criar widgets para configurações
 dbutils.widgets.dropdown("modo_execucao", "TEST", ["TEST", "RUN"], "Modo de Execução")
 dbutils.widgets.dropdown("ambiente_tabela", "DEV", ["DEV", "PROD"], "Ambiente da Tabela")
-dbutils.widgets.text("sample_size", "50000", "Tamanho do Sample (apenas para TEST)")
+dbutils.widgets.text("sample_size", "10000", "Tamanho do Sample (apenas para TEST)")
 
 # Obter valores dos widgets
 MODO_EXECUCAO = dbutils.widgets.get("modo_execucao")
@@ -200,32 +200,32 @@ print(f"📋 Tabela de estoque CDs: {TABELA_BRONZE_ESTOQUE_CDS}")
 estoque_lojas_df = (
     spark.table(TABELA_BRONZE_ESTOQUE_LOJAS)
     .filter(F.col("DtAtual") == hoje_str)
-    .select(
-        "DtAtual", "CdFilial", "CdSku", "TipoEstoque",
-        "QtEstoque", "VrTotalVv", "DDE",
-        "ESTOQUE_SEGURANCA", "LEADTIME_MEDIO", "COBERTURA_ATUAL",
-        "COBERTURA_ALVO", "DDV_SEM_OUTLIER", "DDV_FUTURO",
-        "GRADE", "TRANSITO", "ESTOQUE_PROJETADO",
-        "COBERTURA_ATUAL_C_TRANISTO_DIAS", "MEDIA_3", "MEDIA_6",
-        "MEDIA_9", "MEDIA_12", "DDV_SO", "DDV_CO",
-        "CLUSTER_OBG", "CLUSTER_SUG"
-    )
+    # .select(
+    #     "DtAtual", "CdFilial", "CdSku", "TipoEstoque",
+    #     "QtEstoque", "VrTotalVv", "DDE",
+    #     "ESTOQUE_SEGURANCA", "LEADTIME_MEDIO", "COBERTURA_ATUAL",
+    #     "COBERTURA_ALVO", "DDV_SEM_OUTLIER", "DDV_FUTURO",
+    #     "GRADE", "TRANSITO", "ESTOQUE_PROJETADO",
+    #     "COBERTURA_ATUAL_C_TRANISTO_DIAS", "MEDIA_3", "MEDIA_6",
+    #     "MEDIA_9", "MEDIA_12", "DDV_SO", "DDV_CO",
+    #     "CLUSTER_OBG", "CLUSTER_SUG"
+    # )
 )
 
 # Carregar dados de estoque dos depósitos (posição atual) - parametrizado por ambiente
 estoque_cds_df = (
     spark.table(TABELA_BRONZE_ESTOQUE_CDS)
     .filter(F.col("DtAtual") == hoje_str)
-    .select(
-        "DtAtual", "CdFilial", "CdSku", "TipoEstoque",
-        "QtEstoque", "VrTotalVv", "DDE",
-        "ESTOQUE_SEGURANCA", "LEADTIME_MEDIO", "COBERTURA_ATUAL",
-        "COBERTURA_ALVO", "DDV_SEM_OUTLIER", "DDV_FUTURO",
-        "GRADE", "TRANSITO", "ESTOQUE_PROJETADO",
-        "COBERTURA_ATUAL_C_TRANISTO_DIAS", "MEDIA_3", "MEDIA_6",
-        "MEDIA_9", "MEDIA_12", "DDV_SO", "DDV_CO",
-        "CLUSTER_OBG", "CLUSTER_SUG"
-    )
+    # .select(
+    #     "DtAtual", "CdFilial", "CdSku", "TipoEstoque",
+    #     "QtEstoque", "VrTotalVv", "DDE",
+    #     "ESTOQUE_SEGURANCA", "LEADTIME_MEDIO", "COBERTURA_ATUAL",
+    #     "COBERTURA_ALVO", "DDV_SEM_OUTLIER", "DDV_FUTURO",
+    #     "GRADE", "TRANSITO", "ESTOQUE_PROJETADO",
+    #     "COBERTURA_ATUAL_C_TRANISTO_DIAS", "MEDIA_3", "MEDIA_6",
+    #     "MEDIA_9", "MEDIA_12", "DDV_SO", "DDV_CO",
+    #     "CLUSTER_OBG", "CLUSTER_SUG"
+    # )
 )
 
 # Processar estoque de lojas separadamente
@@ -571,6 +571,10 @@ print(f"📊 Colunas de vendas preenchidas: {len(colunas_vendas)}")
 
 # COMMAND ----------
 
+master_table_lojas_limpa_df.display()
+
+# COMMAND ----------
+
 print(f"💾 Salvando master tables na camada Silver...")
 
 try:
@@ -652,5 +656,3 @@ print("  ✅ Limpeza automática de cache")
 print("  ✅ Separação de LOJAS e CDs")
 print("  ✅ Evita 8+ joins sequenciais terríveis para performance")
 print("=" * 80)
-
-# COMMAND ----------
