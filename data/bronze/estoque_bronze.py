@@ -396,24 +396,24 @@ gef_plano_df = gef_df.join(
     how="inner"
 )
 
-# Group by CdFilialEntrega (CD) - somando todas as métricas GEF
+# Group by CdFilialEntrega (CD) - agregando métricas GEF
 gef_cd_agregado_df = gef_plano_df.groupBy("CdFilialEntrega", "CdSku", "DtAtual").agg(
     F.sum("ESTOQUE_SEGURANCA").alias("ESTOQUE_SEGURANCA"),
-    F.sum("LEADTIME_MEDIO").alias("LEADTIME_MEDIO"),
-    F.sum("COBERTURA_ES_DIAS").alias("COBERTURA_ES_DIAS"),
+    F.avg("LEADTIME_MEDIO").alias("LEADTIME_MEDIO"),  # Média
+    F.avg("COBERTURA_ES_DIAS").alias("COBERTURA_ES_DIAS"),  # Média
     F.sum("ESTOQUE_ALVO").alias("ESTOQUE_ALVO"),
-    F.sum("COBERTURA_ATUAL").alias("COBERTURA_ATUAL"),
-    F.sum("COBERTURA_ALVO").alias("COBERTURA_ALVO"),
+    F.avg("COBERTURA_ATUAL").alias("COBERTURA_ATUAL"),  # Média
+    F.avg("COBERTURA_ALVO").alias("COBERTURA_ALVO"),  # Média
     F.sum("DDV_SEM_OUTLIER").alias("DDV_SEM_OUTLIER"),
     F.sum("DDV_FUTURO").alias("DDV_FUTURO"),
     F.sum("GRADE").alias("GRADE"),
     F.sum("TRANSITO").alias("TRANSITO"),
     F.sum("ESTOQUE_PROJETADO").alias("ESTOQUE_PROJETADO"),
-    F.sum("COBERTURA_ATUAL_C_TRANSITO_DIAS").alias("COBERTURA_ATUAL_C_TRANSITO_DIAS"),
-    F.sum("MEDIA_3").alias("MEDIA_3"),
-    F.sum("MEDIA_6").alias("MEDIA_6"),
-    F.sum("MEDIA_9").alias("MEDIA_9"),
-    F.sum("MEDIA_12").alias("MEDIA_12"),
+    (F.avg("COBERTURA_ATUAL") * F.sum("TRANSITO")).alias("COBERTURA_ATUAL_C_TRANSITO_DIAS"),  # TRANSITO*
+    F.avg("MEDIA_3").alias("MEDIA_3"),  # Média
+    F.avg("MEDIA_6").alias("MEDIA_6"),  # Média
+    F.avg("MEDIA_9").alias("MEDIA_9"),  # Média
+    F.avg("MEDIA_12").alias("MEDIA_12"),  # Média
     F.sum("DDV_SO").alias("DDV_SO"),
     F.sum("DDV_CO").alias("DDV_CO"),
     F.sum("CLUSTER_OBG").alias("CLUSTER_OBG"),  # Count de lojas atendidas
