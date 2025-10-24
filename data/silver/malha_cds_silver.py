@@ -439,53 +439,109 @@ if usar_grafo_cd_loja:
 
 print("📊 Preparando métricas para visualização...")
 
-# Escolher grafo principal para visualização (priorizar CD→CD)
+# Análise completa de ambos os grafos
+print("🎯 Realizando análise completa de CD→CD e CD→Loja...")
+
+# Preparar dados para análise combinada
+nos_data_completo = []
+conexoes_completas = []
+
+# Adicionar dados do grafo CD→CD
 if usar_grafo_cd_cd:
-    G_principal = G_cd_cd
-    conexoes_principal = conexoes_cd_cd_df
-    niveis_principal = niveis_hierarquicos_cd_cd
-    scc_size_principal = {node: len(next(scc for scc in sccs_cd_cd if node in scc)) for node in G_cd_cd.nodes()}
-    tipo_grafo = "CD→CD"
-    print(f"🎯 Usando grafo CD→CD para visualização")
-else:
-    G_principal = G_cd_loja
-    conexoes_principal = conexoes_cd_loja_df
-    niveis_principal = niveis_hierarquicos_cd_loja
-    scc_size_principal = {node: len(next(scc for scc in sccs_cd_loja if node in scc)) for node in G_cd_loja.nodes()}
-    tipo_grafo = "CD→Loja"
-    print(f"🎯 Usando grafo CD→Loja para visualização")
-
-# Criar DataFrame com métricas
-nos_data = []
-for node in G_principal.nodes():
-    grau_total = G_principal.degree(node)
-    grau_entrada = G_principal.in_degree(node)
-    grau_saida = G_principal.out_degree(node)
-    nivel_hierarquico = niveis_principal.get(node, 0)
-    scc_size = scc_size_principal.get(node, 1)
-    em_ciclo = scc_size > 1
+    print(f"📊 Processando grafo CD→CD...")
+    scc_size_cd_cd = {node: len(next(scc for scc in sccs_cd_cd if node in scc)) for node in G_cd_cd.nodes()}
     
-    nos_data.append({
-        'no': node,
-        'grau_total': grau_total,
-        'grau_entrada': grau_entrada,
-        'grau_saida': grau_saida,
-        'nivel_hierarquico': nivel_hierarquico,
-        'scc_size': scc_size,
-        'em_ciclo': em_ciclo
-    })
+    for node in G_cd_cd.nodes():
+        grau_total = G_cd_cd.degree(node)
+        grau_entrada = G_cd_cd.in_degree(node)
+        grau_saida = G_cd_cd.out_degree(node)
+        nivel_hierarquico = niveis_hierarquicos_cd_cd.get(node, 0)
+        scc_size = scc_size_cd_cd.get(node, 1)
+        em_ciclo = scc_size > 1
+        
+        nos_data_completo.append({
+            'no': node,
+            'tipo_no': 'CD',
+            'grafo': 'CD→CD',
+            'grau_total': grau_total,
+            'grau_entrada': grau_entrada,
+            'grau_saida': grau_saida,
+            'nivel_hierarquico': nivel_hierarquico,
+            'scc_size': scc_size,
+            'em_ciclo': em_ciclo
+        })
+    
+    # Adicionar conexões CD→CD
+    for _, row in conexoes_cd_cd_df.iterrows():
+        conexoes_completas.append({
+            'origem': row['cd_atende'],
+            'destino': row['cd_entrega'],
+            'tipo': 'CD→CD',
+            'origem_tipo': 'CD',
+            'destino_tipo': 'CD'
+        })
 
-nos_df = pd.DataFrame(nos_data)
+# Adicionar dados do grafo CD→Loja
+if usar_grafo_cd_loja:
+    print(f"📊 Processando grafo CD→Loja...")
+    scc_size_cd_loja = {node: len(next(scc for scc in sccs_cd_loja if node in scc)) for node in G_cd_loja.nodes()}
+    
+    for node in G_cd_loja.nodes():
+        grau_total = G_cd_loja.degree(node)
+        grau_entrada = G_cd_loja.in_degree(node)
+        grau_saida = G_cd_loja.out_degree(node)
+        nivel_hierarquico = niveis_hierarquicos_cd_loja.get(node, 0)
+        scc_size = scc_size_cd_loja.get(node, 1)
+        em_ciclo = scc_size > 1
+        
+        # Determinar tipo do nó (CD ou Loja)
+        tipo_no = 'CD' if grau_saida > 0 else 'Loja'
+        
+        nos_data_completo.append({
+            'no': node,
+            'tipo_no': tipo_no,
+            'grafo': 'CD→Loja',
+            'grau_total': grau_total,
+            'grau_entrada': grau_entrada,
+            'grau_saida': grau_saida,
+            'nivel_hierarquico': nivel_hierarquico,
+            'scc_size': scc_size,
+            'em_ciclo': em_ciclo
+        })
+    
+    # Adicionar conexões CD→Loja
+    for _, row in conexoes_cd_loja_df.iterrows():
+        conexoes_completas.append({
+            'origem': row['cd_entrega'],
+            'destino': row['loja_atendida'],
+            'tipo': 'CD→Loja',
+            'origem_tipo': 'CD',
+            'destino_tipo': 'Loja'
+        })
 
-print(f"📊 Métricas preparadas para {len(nos_df):,} nós ({tipo_grafo})")
+# Criar DataFrame completo
+nos_df_completo = pd.DataFrame(nos_data_completo)
+conexoes_df_completo = pd.DataFrame(conexoes_completas)
+
+print(f"✅ Análise completa realizada:")
+print(f"  • Total de nós analisados: {len(nos_df_completo):,}")
+print(f"  • Total de conexões analisadas: {len(conexoes_df_completo):,}")
+print(f"  • CDs únicos: {len(nos_df_completo[nos_df_completo['tipo_no'] == 'CD']):,}")
+print(f"  • Lojas únicas: {len(nos_df_completo[nos_df_completo['tipo_no'] == 'Loja']):,}")
+
+# Usar dados completos para visualização
+nos_amostra = nos_df_completo
+conexoes_principal = conexoes_df_completo
+tipo_grafo = "CD→CD + CD→Loja"
+
+print(f"📊 Métricas preparadas para {len(nos_df_completo):,} nós ({tipo_grafo})")
 print(f"🔍 Primeiras 5 métricas:")
-print(nos_df.head())
+print(nos_df_completo.head())
 
 # Usar todos os nós para visualização
-print(f"✅ Usando todos os {len(nos_df):,} nós para visualização")
-nos_amostra = nos_df
-G_amostra = G_principal
-arestas_amostra = conexoes_principal
+print(f"✅ Usando todos os {len(nos_df_completo):,} nós para visualização")
+G_amostra = None  # Não precisamos mais do grafo individual
+arestas_amostra = conexoes_df_completo
 
 # COMMAND ----------
 
@@ -515,11 +571,13 @@ for _, row in nos_amostra.iterrows():
     pos_x.append(x_pos)
     pos_y.append(y_pos)
     
-    # Cor baseada no tamanho da SCC (ciclos em vermelho)
+    # Cor baseada no tipo de nó e ciclos
     if row['em_ciclo']:
-        cor = 'red'
+        cor = 'red'  # Ciclos em vermelho
+    elif row['tipo_no'] == 'CD':
+        cor = 'blue'  # CDs em azul
     else:
-        cor = 'blue'
+        cor = 'green'  # Lojas em verde
     
     cores.append(cor)
     
@@ -529,6 +587,8 @@ for _, row in nos_amostra.iterrows():
     
     # Texto do tooltip
     texto = f"<b>{row['no']}</b><br>"
+    texto += f"Tipo: {row['tipo_no']}<br>"
+    texto += f"Grafo: {row['grafo']}<br>"
     texto += f"Grau Total: {row['grau_total']}<br>"
     texto += f"Grau Entrada: {row['grau_entrada']}<br>"
     texto += f"Grau Saída: {row['grau_saida']}<br>"
@@ -564,8 +624,8 @@ if len(arestas_amostra) > 0:
     arestas_y = []
     
     for _, row in arestas_amostra.iterrows():
-        origem = row.iloc[0]  # Primeira coluna
-        destino = row.iloc[1]  # Segunda coluna
+        origem = row['origem']
+        destino = row['destino']
         
         # Encontrar posições dos nós
         origem_idx = nos_amostra[nos_amostra['no'] == origem].index
@@ -600,7 +660,7 @@ fig.update_layout(
     plot_bgcolor='white',
     annotations=[
         dict(
-            text="🔴 Vermelho = Ciclos | 🔵 Azul = Isolados",
+            text="🔴 Vermelho = Ciclos | 🔵 Azul = CDs | 🟢 Verde = Lojas",
             xref="paper", yref="paper",
             x=0.02, y=0.98,
             showarrow=False,
@@ -630,43 +690,43 @@ print("=" * 60)
 
 # Estatísticas gerais
 print(f"📈 ESTATÍSTICAS GERAIS:")
-print(f"  • Total de nós: {G_principal.number_of_nodes():,}")
-print(f"  • Total de arestas: {G_principal.number_of_edges():,}")
-print(f"  • Densidade do grafo: {nx.density(G_principal):.4f}")
-print(f"  • Nós visualizados: {len(nos_amostra):,}")
-print(f"  • Arestas visualizadas: {len(arestas_amostra):,}")
+print(f"  • Total de nós: {len(nos_df_completo):,}")
+print(f"  • Total de conexões: {len(conexoes_df_completo):,}")
+print(f"  • CDs únicos: {len(nos_df_completo[nos_df_completo['tipo_no'] == 'CD']):,}")
+print(f"  • Lojas únicas: {len(nos_df_completo[nos_df_completo['tipo_no'] == 'Loja']):,}")
+print(f"  • Nós em ciclos: {len(nos_df_completo[nos_df_completo['em_ciclo']]):,}")
 
 # Análise específica por tipo de grafo
-if tipo_grafo == "CD→CD":
+if usar_grafo_cd_cd:
     print(f"\n🏗️ ANÁLISE CD→CD:")
     print(f"  • CDs que atendem outros CDs: {conexoes_cd_cd_df['cd_atende'].nunique() if len(conexoes_cd_cd_df) > 0 else 0:,}")
     print(f"  • CDs que são atendidos: {conexoes_cd_cd_df['cd_entrega'].nunique() if len(conexoes_cd_cd_df) > 0 else 0:,}")
     print(f"  • Total de conexões CD→CD: {len(conexoes_cd_cd_df):,}")
     
     if usar_grafo_cd_cd:
-        print(f"\n🔄 ANÁLISE DE CICLOS:")
+        print(f"\n🔄 ANÁLISE DE CICLOS CD→CD:")
         print(f"  • Componentes fortemente conectadas: {len(sccs_cd_cd) if 'sccs_cd_cd' in locals() else 0}")
         print(f"  • Ciclos detectados: {len(ciclos_cd_cd) if 'ciclos_cd_cd' in locals() else 0}")
         print(f"  • CDs em ciclos: {sum(len(scc) for scc in ciclos_cd_cd) if 'ciclos_cd_cd' in locals() else 0}")
         
-        print(f"\n📊 ANÁLISE HIERÁRQUICA:")
+        print(f"\n📊 ANÁLISE HIERÁRQUICA CD→CD:")
         print(f"  • CDs fonte: {len(cds_fonte) if 'cds_fonte' in locals() else 0:,}")
         print(f"  • Profundidade máxima: {max(niveis_hierarquicos_cd_cd.values()) if niveis_hierarquicos_cd_cd else 0}")
         print(f"  • Níveis únicos: {len(set(niveis_hierarquicos_cd_cd.values())) if niveis_hierarquicos_cd_cd else 0}")
 
-else:  # CD→Loja
+if usar_grafo_cd_loja:
     print(f"\n🏪 ANÁLISE CD→Loja:")
     print(f"  • CDs que entregam em lojas: {conexoes_cd_loja_df['cd_entrega'].nunique() if len(conexoes_cd_loja_df) > 0 else 0:,}")
     print(f"  • Lojas atendidas: {conexoes_cd_loja_df['loja_atendida'].nunique() if len(conexoes_cd_loja_df) > 0 else 0:,}")
     print(f"  • Total de conexões CD→Loja: {len(conexoes_cd_loja_df):,}")
     
     if usar_grafo_cd_loja:
-        print(f"\n🔄 ANÁLISE DE CICLOS:")
+        print(f"\n🔄 ANÁLISE DE CICLOS CD→Loja:")
         print(f"  • Componentes fortemente conectadas: {len(sccs_cd_loja) if 'sccs_cd_loja' in locals() else 0}")
         print(f"  • Ciclos detectados: {len(ciclos_cd_loja) if 'ciclos_cd_loja' in locals() else 0}")
         print(f"  • Filiais em ciclos: {sum(len(scc) for scc in ciclos_cd_loja) if 'ciclos_cd_loja' in locals() else 0}")
         
-        print(f"\n📊 ANÁLISE HIERÁRQUICA:")
+        print(f"\n📊 ANÁLISE HIERÁRQUICA CD→Loja:")
         print(f"  • CDs fonte: {len(cds_no_grafo) if 'cds_no_grafo' in locals() else 0:,}")
         print(f"  • Profundidade máxima: {max(niveis_hierarquicos_cd_loja.values()) if niveis_hierarquicos_cd_loja else 0}")
         print(f"  • Níveis únicos: {len(set(niveis_hierarquicos_cd_loja.values())) if niveis_hierarquicos_cd_loja else 0}")
@@ -698,16 +758,16 @@ resultado_json = {
         "total_registros_processados": total_registros
     },
     "estatisticas_gerais": {
-        "total_nos": int(G_principal.number_of_nodes()),
-        "total_arestas": int(G_principal.number_of_edges()),
-        "densidade": float(nx.density(G_principal)),
-        "nos_visualizados": int(len(nos_amostra)),
-        "arestas_visualizadas": int(len(arestas_amostra))
+        "total_nos": int(len(nos_df_completo)),
+        "total_conexoes": int(len(conexoes_df_completo)),
+        "cds_unicos": int(len(nos_df_completo[nos_df_completo['tipo_no'] == 'CD'])),
+        "lojas_unicas": int(len(nos_df_completo[nos_df_completo['tipo_no'] == 'Loja'])),
+        "nos_em_ciclos": int(len(nos_df_completo[nos_df_completo['em_ciclo']]))
     }
 }
 
 # Adicionar métricas específicas por tipo de grafo
-if tipo_grafo == "CD→CD":
+if usar_grafo_cd_cd:
     resultado_json["analise_cd_cd"] = {
         "cds_unicos_atendem": int(conexoes_cd_cd_df['cd_atende'].nunique()) if len(conexoes_cd_cd_df) > 0 else 0,
         "cds_unicos_atendidos": int(conexoes_cd_cd_df['cd_entrega'].nunique()) if len(conexoes_cd_cd_df) > 0 else 0,
@@ -716,23 +776,22 @@ if tipo_grafo == "CD→CD":
         "top_cds_por_grau_entrada": conexoes_cd_cd_df['cd_entrega'].value_counts().head(10).to_dict() if len(conexoes_cd_cd_df) > 0 else {}
     }
     
-    if usar_grafo_cd_cd:
-        resultado_json["complexidade_cd_cd"] = {
-            "total_sccs": int(len(sccs_cd_cd)),
-            "sccs_com_ciclos": int(len(ciclos_cd_cd)),
-            "sccs_isoladas": int(len(sccs_cd_cd) - len(ciclos_cd_cd)),
-            "cds_em_ciclos": int(sum(len(scc) for scc in ciclos_cd_cd)),
-            "maior_ciclo": int(max(len(scc) for scc in ciclos_cd_cd)) if ciclos_cd_cd else 0
-        }
-        
-        resultado_json["hierarquia_cd_cd"] = {
-            "cds_fonte": int(len(cds_fonte)),
-            "profundidade_maxima": int(max(niveis_hierarquicos_cd_cd.values())) if niveis_hierarquicos_cd_cd else 0,
-            "niveis_unicos": int(len(set(niveis_hierarquicos_cd_cd.values()))) if niveis_hierarquicos_cd_cd else 0,
-            "distribuicao_niveis": dict(pd.Series(list(niveis_hierarquicos_cd_cd.values())).value_counts().sort_index())
-        }
+    resultado_json["complexidade_cd_cd"] = {
+        "total_sccs": int(len(sccs_cd_cd)),
+        "sccs_com_ciclos": int(len(ciclos_cd_cd)),
+        "sccs_isoladas": int(len(sccs_cd_cd) - len(ciclos_cd_cd)),
+        "cds_em_ciclos": int(sum(len(scc) for scc in ciclos_cd_cd)),
+        "maior_ciclo": int(max(len(scc) for scc in ciclos_cd_cd)) if ciclos_cd_cd else 0
+    }
+    
+    resultado_json["hierarquia_cd_cd"] = {
+        "cds_fonte": int(len(cds_fonte)),
+        "profundidade_maxima": int(max(niveis_hierarquicos_cd_cd.values())) if niveis_hierarquicos_cd_cd else 0,
+        "niveis_unicos": int(len(set(niveis_hierarquicos_cd_cd.values()))) if niveis_hierarquicos_cd_cd else 0,
+        "distribuicao_niveis": dict(pd.Series(list(niveis_hierarquicos_cd_cd.values())).value_counts().sort_index())
+    }
 
-else:  # CD→Loja
+if usar_grafo_cd_loja:
     resultado_json["analise_cd_loja"] = {
         "cds_unicos_entregam": int(conexoes_cd_loja_df['cd_entrega'].nunique()) if len(conexoes_cd_loja_df) > 0 else 0,
         "lojas_unicas_atendidas": int(conexoes_cd_loja_df['loja_atendida'].nunique()) if len(conexoes_cd_loja_df) > 0 else 0,
@@ -740,50 +799,41 @@ else:  # CD→Loja
         "top_cds_por_lojas_atendidas": conexoes_cd_loja_df['cd_entrega'].value_counts().head(10).to_dict() if len(conexoes_cd_loja_df) > 0 else {}
     }
     
-    if usar_grafo_cd_loja:
-        resultado_json["complexidade_cd_loja"] = {
-            "total_sccs": int(len(sccs_cd_loja)),
-            "sccs_com_ciclos": int(len(ciclos_cd_loja)),
-            "sccs_isoladas": int(len(sccs_cd_loja) - len(ciclos_cd_loja)),
-            "filiais_em_ciclos": int(sum(len(scc) for scc in ciclos_cd_loja)),
-            "maior_ciclo": int(max(len(scc) for scc in ciclos_cd_loja)) if ciclos_cd_loja else 0
-        }
-        
-        resultado_json["hierarquia_cd_loja"] = {
-            "cds_no_grafo": int(len(cds_no_grafo)),
-            "profundidade_maxima": int(max(niveis_hierarquicos_cd_loja.values())) if niveis_hierarquicos_cd_loja else 0,
-            "niveis_unicos": int(len(set(niveis_hierarquicos_cd_loja.values()))) if niveis_hierarquicos_cd_loja else 0,
-            "distribuicao_niveis": dict(pd.Series(list(niveis_hierarquicos_cd_loja.values())).value_counts().sort_index())
-        }
+    resultado_json["complexidade_cd_loja"] = {
+        "total_sccs": int(len(sccs_cd_loja)),
+        "sccs_com_ciclos": int(len(ciclos_cd_loja)),
+        "sccs_isoladas": int(len(sccs_cd_loja) - len(ciclos_cd_loja)),
+        "filiais_em_ciclos": int(sum(len(scc) for scc in ciclos_cd_loja)),
+        "maior_ciclo": int(max(len(scc) for scc in ciclos_cd_loja)) if ciclos_cd_loja else 0
+    }
+    
+    resultado_json["hierarquia_cd_loja"] = {
+        "cds_no_grafo": int(len(cds_no_grafo)),
+        "profundidade_maxima": int(max(niveis_hierarquicos_cd_loja.values())) if niveis_hierarquicos_cd_loja else 0,
+        "niveis_unicos": int(len(set(niveis_hierarquicos_cd_loja.values()))) if niveis_hierarquicos_cd_loja else 0,
+        "distribuicao_niveis": dict(pd.Series(list(niveis_hierarquicos_cd_loja.values())).value_counts().sort_index())
+    }
 
 # Adicionar dados das conexões para desenhar o grafo
 resultado_json["conexoes"] = []
 
-if tipo_grafo == "CD→CD":
-    for _, row in conexoes_cd_cd_df.iterrows():
-        resultado_json["conexoes"].append({
-            "origem": str(row['cd_atende']),
-            "destino": str(row['cd_entrega']),
-            "tipo": "CD→CD",
-            "origem_tipo": "CD",
-            "destino_tipo": "CD"
-        })
-else:  # CD→Loja
-    for _, row in conexoes_cd_loja_df.iterrows():
-        resultado_json["conexoes"].append({
-            "origem": str(row['cd_entrega']),
-            "destino": str(row['loja_atendida']),
-            "tipo": "CD→Loja",
-            "origem_tipo": "CD",
-            "destino_tipo": "Loja"
-        })
+# Adicionar todas as conexões (CD→CD e CD→Loja)
+for _, row in conexoes_df_completo.iterrows():
+    resultado_json["conexoes"].append({
+        "origem": str(row['origem']),
+        "destino": str(row['destino']),
+        "tipo": str(row['tipo']),
+        "origem_tipo": str(row['origem_tipo']),
+        "destino_tipo": str(row['destino_tipo'])
+    })
 
 # Adicionar dados dos nós com posições para visualização
 resultado_json["nos"] = []
-for _, row in nos_amostra.iterrows():
+for _, row in nos_df_completo.iterrows():
     resultado_json["nos"].append({
         "id": str(row['no']),
-        "tipo": "CD" if tipo_grafo == "CD→CD" else ("CD" if row['grau_saida'] > 0 else "Loja"),
+        "tipo": str(row['tipo_no']),
+        "grafo": str(row['grafo']),
         "grau_total": int(row['grau_total']),
         "grau_entrada": int(row['grau_entrada']),
         "grau_saida": int(row['grau_saida']),
@@ -793,7 +843,7 @@ for _, row in nos_amostra.iterrows():
     })
 
 # Salvar JSON
-json_path = f"/Workspace/Users/lucas.arodrigues-ext@viavarejo.com.br/usuarios/scardini/torre_de_controle_supply/data/silver/malha_json/malha_logistica_{tipo_grafo.lower().replace('→', '_')}.json"
+json_path = f"/Workspace/Users/lucas.arodrigues-ext@viavarejo.com.br/usuarios/scardini/torre_de_controle_supply/data/silver/malha_json/malha_logistica_completa.json"
 
 # Função para converter tipos NumPy/Pandas para tipos Python nativos
 def converter_para_python_nativo(obj):
