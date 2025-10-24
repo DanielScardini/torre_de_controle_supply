@@ -49,7 +49,7 @@ def load_estoque_loja_data(spark: SparkSession) -> DataFrame:
     """
     return (
         spark.read.table("data_engineering_prd.app_logistica.gi_boss_qualidade_estoque")
-        .filter(F.col("DtAtual") >= hoje_str)
+        .filter(F.col("DtAtual") == hoje_str)
         .filter(F.col("StLoja") == "ATIVA")
         .filter(F.col("DsEstoqueLojaDeposito") == "L")
         # .select(
@@ -94,7 +94,7 @@ def load_estoque_CD_data(spark: SparkSession) -> DataFrame:
     """
     return (
         spark.read.table("data_engineering_prd.app_logistica.gi_boss_qualidade_estoque")
-        .filter(F.col("DtAtual") >= hoje_str)
+        .filter(F.col("DtAtual") == hoje_str)
         .filter(F.col("DsEstoqueLojaDeposito") == "D")
         # .select(
         #     "CdFilial", 
@@ -124,5 +124,6 @@ df_estoque_CD.display()
 
 # MAGIC %sql select * from databox.logistica_comum.gef_visao_estoque_lojas
 # MAGIC
-# MAGIC # TODO - CODIGO_ITEM = CdSku 
-# MAGIC Filial = CdFilial com 4 ultimos digitos em inteiro
+# MAGIC -- TODO - CODIGO_ITEM = CdSku 
+# MAGIC -- Filial = CdFilial com 4 ultimos digitos em inteiro
+# MAGIC -- 
