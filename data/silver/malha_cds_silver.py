@@ -109,7 +109,7 @@ for col in colunas_necessarias:
         print(f"  ❌ {col}: NÃO encontrada")
 
 # Processar todos os registros
-print(f"🚀 Processando todos os registros ({plano_df.count():,})")
+print(f"🚀 Processando todos os registros ({total_registros:,})")
 
 # COMMAND ----------
 
@@ -122,7 +122,12 @@ print("🏗️ Analisando estrutura CD→CD e CD→Loja...")
 print("📋 IMPORTANTE: CdFilialAtende e CdFilialEntrega são SEMPRE CDs, CdLoja é SEMPRE LOJA")
 
 # Converter para Pandas para análise mais eficiente
-plano_pandas = plano_df.toPandas()
+# Usar sample para evitar problemas de memória com tabelas grandes
+if total_registros > 100000:
+    print(f"⚠️ Tabela grande ({total_registros:,} registros). Usando sample de 10%...")
+    plano_pandas = plano_df.sample(0.1).toPandas()
+else:
+    plano_pandas = plano_df.toPandas()
 
 print(f"\n📊 Análise CD→CD (quando CdFilialAtende != CdFilialEntrega):")
 conexoes_cd_cd = plano_pandas[
@@ -491,8 +496,9 @@ for _, row in nos_amostra.iterrows():
     nivel_max = nos_amostra['nivel_hierarquico'].max()
     y_pos = nivel_max - row['nivel_hierarquico']
     
-    # Posição X aleatória para evitar sobreposição
-    x_pos = np.random.uniform(-1, 1)
+    # Posição X baseada no grau para melhor distribuição
+    # Usar grau total para espalhar nós com mais conexões
+    x_pos = (row['grau_total'] % 10) * 0.2 - 1  # Distribuir entre -1 e 1
     
     pos_x.append(x_pos)
     pos_y.append(y_pos)
