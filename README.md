@@ -32,8 +32,8 @@ A Torre de Controle de Supply Chain é uma ferramenta de visibilidade de estoque
 ```
 torre_de_controle_supply/
 ├── README.md                           # Este arquivo
-├── ARCHITECTURE.md                     # Documentação da arquitetura
-├── DEVELOPMENT.md                      # Guia de desenvolvimento
+├── docs/ARCHITECTURE.md                  # Documentação da arquitetura
+├── docs/DEVELOPMENT.md                   # Guia de desenvolvimento
 ├── requirements.txt                    # Dependências Python
 ├── databricks-requirements.txt         # Dependências específicas do Databricks
 ├── .gitignore                          # Arquivos ignorados pelo Git
@@ -119,7 +119,7 @@ streamlit run src/frontend/main.py
 
 ## Contribuição
 
-Consulte o arquivo `DEVELOPMENT.md` para informações sobre como contribuir com o projeto.
+Consulte o arquivo `docs/DEVELOPMENT.md` para informações sobre como contribuir com o projeto.
 
 ## Licença
 

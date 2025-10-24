@@ -3,17 +3,17 @@
 ## 📚 Documentação Principal
 
 ### Arquitetura e Estrutura
-- [README Principal](../../README.md) - Visão geral do projeto
-- [Arquitetura](../../ARCHITECTURE.md) - Arquitetura da solução
-- [Guia de Desenvolvimento](../../DEVELOPMENT.md) - Como contribuir
+- [README Principal](../README.md) - Visão geral do projeto
+- [Arquitetura](ARCHITECTURE.md) - Arquitetura da solução
+- [Guia de Desenvolvimento](DEVELOPMENT.md) - Como contribuir
 
 ### Camadas de Dados
-- [Visão Geral das Camadas](README.md) - Medallion Architecture
+- [Visão Geral das Camadas](../data/README.md) - Medallion Architecture
 - [Catálogo de Tabelas](CATALOGO_TABELAS.md) - Tabelas implementadas
-- [Camada Bronze](bronze/README.md) - Dados brutos
-- [Camada Silver](silver/README.md) - Dados limpos
-- [Camada Gold](gold/README.md) - Dados agregados
-- [Views](views/README.md) - Views para dashboards
+- [Camada Bronze](../data/bronze/README.md) - Dados brutos
+- [Camada Silver](../data/silver/README.md) - Dados limpos
+- [Camada Gold](../data/gold/README.md) - Dados agregados
+- [Views](../data/views/README.md) - Views para dashboards
 
 ## 📊 Catálogo de Tabelas por Camada
 
