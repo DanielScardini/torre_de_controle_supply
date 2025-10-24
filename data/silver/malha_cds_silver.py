@@ -661,3 +661,107 @@ for _, row in top_nos.iterrows():
     print(f"  • {row['no']}: Grau {row['grau_total']} (Nível {row['nivel_hierarquico']}){ciclo_info}")
 
 print("=" * 60)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Salvamento dos Resultados em JSON
+
+# COMMAND ----------
+
+print("💾 Salvando resultados em JSON para consumo pelos dashboards...")
+
+# Criar estrutura JSON otimizada para dashboards
+resultado_json = {
+    "metadata": {
+        "tipo_analise": tipo_grafo,
+        "data_processamento": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "tabela_origem": TABELA_PLANO_ABASTECIMENTO,
+        "total_registros_processados": total_registros
+    },
+    "estatisticas_gerais": {
+        "total_nos": int(G_principal.number_of_nodes()),
+        "total_arestas": int(G_principal.number_of_edges()),
+        "densidade": float(nx.density(G_principal)),
+        "nos_visualizados": int(len(nos_amostra)),
+        "arestas_visualizadas": int(len(arestas_amostra))
+    }
+}
+
+# Adicionar métricas específicas por tipo de grafo
+if tipo_grafo == "CD→CD":
+    resultado_json["analise_cd_cd"] = {
+        "cds_unicos_atendem": int(conexoes_cd_cd_df['cd_atende'].nunique()) if len(conexoes_cd_cd_df) > 0 else 0,
+        "cds_unicos_atendidos": int(conexoes_cd_cd_df['cd_entrega'].nunique()) if len(conexoes_cd_cd_df) > 0 else 0,
+        "total_conexoes": int(len(conexoes_cd_cd_df)),
+        "top_cds_por_grau_saida": conexoes_cd_cd_df['cd_atende'].value_counts().head(10).to_dict() if len(conexoes_cd_cd_df) > 0 else {},
+        "top_cds_por_grau_entrada": conexoes_cd_cd_df['cd_entrega'].value_counts().head(10).to_dict() if len(conexoes_cd_cd_df) > 0 else {}
+    }
+    
+    if usar_grafo_cd_cd:
+        resultado_json["complexidade_cd_cd"] = {
+            "total_sccs": int(len(sccs_cd_cd)),
+            "sccs_com_ciclos": int(len(ciclos_cd_cd)),
+            "sccs_isoladas": int(len(sccs_cd_cd) - len(ciclos_cd_cd)),
+            "cds_em_ciclos": int(sum(len(scc) for scc in ciclos_cd_cd)),
+            "maior_ciclo": int(max(len(scc) for scc in ciclos_cd_cd)) if ciclos_cd_cd else 0
+        }
+        
+        resultado_json["hierarquia_cd_cd"] = {
+            "cds_fonte": int(len(cds_fonte)),
+            "profundidade_maxima": int(max(niveis_hierarquicos_cd_cd.values())) if niveis_hierarquicos_cd_cd else 0,
+            "niveis_unicos": int(len(set(niveis_hierarquicos_cd_cd.values()))) if niveis_hierarquicos_cd_cd else 0,
+            "distribuicao_niveis": dict(pd.Series(list(niveis_hierarquicos_cd_cd.values())).value_counts().sort_index())
+        }
+
+else:  # CD→Loja
+    resultado_json["analise_cd_loja"] = {
+        "cds_unicos_atendem": int(conexoes_cd_loja_df['cd_atende'].nunique()) if len(conexoes_cd_loja_df) > 0 else 0,
+        "lojas_unicas_atendidas": int(conexoes_cd_loja_df['loja_atendida'].nunique()) if len(conexoes_cd_loja_df) > 0 else 0,
+        "total_conexoes": int(len(conexoes_cd_loja_df)),
+        "top_cds_por_lojas_atendidas": conexoes_cd_loja_df['cd_atende'].value_counts().head(10).to_dict() if len(conexoes_cd_loja_df) > 0 else {}
+    }
+    
+    if usar_grafo_cd_loja:
+        resultado_json["complexidade_cd_loja"] = {
+            "total_sccs": int(len(sccs_cd_loja)),
+            "sccs_com_ciclos": int(len(ciclos_cd_loja)),
+            "sccs_isoladas": int(len(sccs_cd_loja) - len(ciclos_cd_loja)),
+            "filiais_em_ciclos": int(sum(len(scc) for scc in ciclos_cd_loja)),
+            "maior_ciclo": int(max(len(scc) for scc in ciclos_cd_loja)) if ciclos_cd_loja else 0
+        }
+        
+        resultado_json["hierarquia_cd_loja"] = {
+            "cds_no_grafo": int(len(cds_no_grafo)),
+            "profundidade_maxima": int(max(niveis_hierarquicos_cd_loja.values())) if niveis_hierarquicos_cd_loja else 0,
+            "niveis_unicos": int(len(set(niveis_hierarquicos_cd_loja.values()))) if niveis_hierarquicos_cd_loja else 0,
+            "distribuicao_niveis": dict(pd.Series(list(niveis_hierarquicos_cd_loja.values())).value_counts().sort_index())
+        }
+
+# Adicionar dados detalhados dos nós (top 20 por grau)
+resultado_json["dados_detalhados"] = {
+    "top_nos_por_grau": nos_amostra.nlargest(20, 'grau_total').to_dict('records'),
+    "nos_em_ciclos": nos_amostra[nos_amostra['em_ciclo']].to_dict('records'),
+    "nos_fonte": nos_amostra[nos_amostra['nivel_hierarquico'] == 0].to_dict('records')
+}
+
+# Salvar JSON
+json_path = f"/dbfs/tmp/malha_logistica_{tipo_grafo.lower().replace('→', '_')}.json"
+with open(json_path, 'w', encoding='utf-8') as f:
+    json.dump(resultado_json, f, indent=2, ensure_ascii=False)
+
+print(f"✅ Resultados salvos em: {json_path}")
+print(f"📊 Estrutura do JSON:")
+print(f"  • Metadata: informações gerais")
+print(f"  • Estatísticas gerais: métricas do grafo")
+print(f"  • Análise específica: métricas por tipo de conexão")
+print(f"  • Complexidade: análise de ciclos e SCCs")
+print(f"  • Hierarquia: níveis e distribuição")
+print(f"  • Dados detalhados: top nós e nós especiais")
+
+# Mostrar resumo do JSON salvo
+print(f"\n📋 RESUMO DO JSON SALVO:")
+print(f"  • Tamanho estimado: ~{len(json.dumps(resultado_json)):,} caracteres")
+print(f"  • Nós detalhados: {len(resultado_json['dados_detalhados']['top_nos_por_grau'])}")
+print(f"  • Nós em ciclos: {len(resultado_json['dados_detalhados']['nos_em_ciclos'])}")
+print(f"  • Nós fonte: {len(resultado_json['dados_detalhados']['nos_fonte'])}")
