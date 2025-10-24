@@ -39,7 +39,7 @@ Para uma visão completa das tabelas implementadas, consulte o [Catálogo de Tab
 ### Widgets Interativos
 Os notebooks utilizam widgets do Databricks para configuração interativa:
 
-- **Modo de Execução**: `TEST` (com samples) ou `RUN` (completo)
+- **Modo de Execução**: `TEST` (com samples + 1 dia) ou `RUN` (completo + 90 dias)
 - **Ambiente da Tabela**: `DEV` (desenvolvimento) ou `PROD` (produção)
 - **Tamanho do Sample**: Configurável via widget (apenas para TEST)
 

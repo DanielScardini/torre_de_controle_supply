@@ -40,6 +40,7 @@ TABELA_BRONZE_VENDAS: str = f"databox.bcg_comum.supply_{AMBIENTE_TABELA.lower()}
 
 # Samples baseados no modo
 USAR_SAMPLES: bool = (MODO_EXECUCAO == "TEST")
+DIAS_PROCESSAMENTO: int = 1 if MODO_EXECUCAO == "TEST" else 90
 SAMPLE_SIZE: int = 100000
 ```
 
@@ -55,7 +56,30 @@ TABELA_BRONZE_ESTOQUE_CD: str = f"databox.bcg_comum.supply_{AMBIENTE_TABELA.lowe
 
 # Samples baseados no modo
 USAR_SAMPLES: bool = (MODO_EXECUCAO == "TEST")
+DIAS_PROCESSAMENTO: int = 1 if MODO_EXECUCAO == "TEST" else 90
 SAMPLE_SIZE: int = 10000
+```
+
+## 📅 Controle de Período de Dados
+
+### **DIAS_PROCESSAMENTO** 📊
+- **TEST**: Processa apenas **1 dia** de dados históricos
+  - ✅ Execução ultra-rápida para desenvolvimento
+  - ✅ Ideal para testes de lógica e validações
+  - ✅ Reduz custos de processamento durante desenvolvimento
+
+- **RUN**: Processa **90 dias** de dados históricos
+  - ✅ Análise completa para produção
+  - ✅ Dados suficientes para análises estatísticas
+  - ✅ Período padrão para relatórios de negócio
+
+### Configuração Automática
+```python
+# Definido automaticamente baseado no MODO_EXECUCAO
+DIAS_PROCESSAMENTO: int = 1 if MODO_EXECUCAO == "TEST" else 90
+
+# Usado nos filtros de data
+.filter(F.col("DtAprovacao").between(data_inicio_int, hoje_int))
 ```
 
 ## 🎯 Cenários de Uso
@@ -64,21 +88,21 @@ SAMPLE_SIZE: int = 10000
 ```python
 MODO_EXECUCAO = "TEST"
 AMBIENTE_TABELA = "DEV"
-# Resultado: supply_dev_* com samples
+# Resultado: supply_dev_* com samples + 1 dia de dados
 ```
 
 ### Teste em Produção (TEST + PROD)
 ```python
 MODO_EXECUCAO = "TEST"
 AMBIENTE_TABELA = "PROD"
-# Resultado: supply_prd_* com samples
+# Resultado: supply_prd_* com samples + 1 dia de dados
 ```
 
 ### Produção Real (RUN + PROD)
 ```python
 MODO_EXECUCAO = "RUN"
 AMBIENTE_TABELA = "PROD"
-# Resultado: supply_prd_* sem samples
+# Resultado: supply_prd_* dados completos + 90 dias de dados
 ```
 
 ## 📋 Tabelas Geradas

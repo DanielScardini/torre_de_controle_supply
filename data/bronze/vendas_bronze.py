@@ -65,18 +65,28 @@ TIMEZONE_SP = timezone('America/Sao_Paulo')
 # Usar samples baseado no modo de execução
 USAR_SAMPLES: bool = (MODO_EXECUCAO == "TEST")
 
+# Definir quantidade de dias baseado no modo de execução
+DIAS_PROCESSAMENTO: int = 1 if MODO_EXECUCAO == "TEST" else 90
+
 # Inicialização do Spark
 spark = SparkSession.builder.appName("vendas_bronze").getOrCreate()
 
-# Data de processamento (ontem)
-hoje = datetime.now(TIMEZONE_SP) - timedelta(days=0)
+# Data de processamento (hoje)
+hoje = datetime.now(TIMEZONE_SP)
 hoje_str = hoje.strftime("%Y-%m-%d")
 hoje_int = int(hoje.strftime("%Y%m%d"))
+
+# Data de início baseada no modo de execução
+data_inicio = hoje - timedelta(days=DIAS_PROCESSAMENTO)
+data_inicio_str = data_inicio.strftime("%Y-%m-%d")
 
 print(f"📅 Data de processamento: {hoje}")
 print(f"📝 Data string: {hoje_str}")
 print(f"🔢 Data int: {hoje_int}")
 print(f"🌍 Timezone: {TIMEZONE_SP}")
+print(f"📊 Período de processamento: {DIAS_PROCESSAMENTO} dias")
+print(f"📅 Data início: {data_inicio_str}")
+print(f"📅 Data fim: {hoje_str}")
 
 # =============================================================================
 # CONFIGURAÇÕES DE PROCESSAMENTO
@@ -86,6 +96,9 @@ print("🔧 CONFIGURAÇÕES DE PROCESSAMENTO:")
 print(f"  • Modo de Execução: {MODO_EXECUCAO}")
 print(f"  • Ambiente da Tabela: {AMBIENTE_TABELA}")
 print(f"  • Tabela de Destino: {TABELA_BRONZE_VENDAS}")
+print(f"  • Período de Dados: {DIAS_PROCESSAMENTO} dias")
+print(f"  • Data Início: {data_inicio_str}")
+print(f"  • Data Fim: {hoje_str}")
 print(f"  • Usar Samples: {USAR_SAMPLES}")
 if USAR_SAMPLES:
     print(f"  • Tamanho do Sample: {SAMPLE_SIZE:,} registros")
@@ -97,25 +110,19 @@ print("=" * 80)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Cálculo da Data de Início
+# MAGIC ## Configuração do Período de Processamento
+# MAGIC
+# MAGIC Este bloco configura o período de dados baseado no modo de execução:
+# MAGIC - **TEST**: 1 dia de dados para desenvolvimento rápido
+# MAGIC - **RUN**: 90 dias de dados para análise completa
 
 # COMMAND ----------
 
-# Configuração do período de análise
-dias_retrocesso = 1
-
-# Validação do parâmetro
-if dias_retrocesso < 0:
-    raise ValueError("dias_retrocesso deve ser positivo")
-
-# Cálculo da data de início
-hoje_dt = datetime.now(TIMEZONE_SP)
-data_inicio = hoje_dt - timedelta(days=dias_retrocesso)
+# Converter data_inicio para formato int (já calculado anteriormente)
 data_inicio_int = int(data_inicio.strftime("%Y%m%d"))
-data_inicio_str = data_inicio.strftime("%Y-%m-%d")
 
 print(f"📊 Data de início calculada: {data_inicio}")
-print(f"⏰ Dias de retrocesso: {dias_retrocesso}")
+print(f"⏰ Dias de processamento: {DIAS_PROCESSAMENTO}")
 print(f"📅 Data início: {data_inicio}")
 print(f"🔢 Data início int: {data_inicio_int}")
 
@@ -123,7 +130,7 @@ print(f"🔢 Data início int: {data_inicio_int}")
 df_exemplo = spark.range(1).select(
     F.lit(data_inicio).alias("data_inicio"),
     F.lit(data_inicio_int).alias("data_inicio_int"),
-    F.lit(dias_retrocesso).alias("dias_retrocesso")
+    F.lit(DIAS_PROCESSAMENTO).alias("dias_processamento")
 )
 
 # display(df_exemplo)
@@ -647,7 +654,7 @@ print("🎉 Processamento de vendas Bronze concluído com sucesso!")
 print("=" * 80)
 print("📊 RESUMO DO PROCESSAMENTO:")
 print(f"  • Período processado: {data_inicio_str} até {hoje_str}")
-print(f"  • Dias de histórico: {dias_retrocesso}")
+print(f"  • Dias de histórico: {DIAS_PROCESSAMENTO}")
 print(f"  • Registros offline: {vendas_offline_final_df.count():,}")
 print(f"  • Registros online: {vendas_online_final_df.count():,}")
 print(f"  • Total consolidado: {vendas_consolidadas_df.count():,}")
