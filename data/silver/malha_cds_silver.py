@@ -797,10 +797,27 @@ json_path = f"/Workspace/Users/lucas.arodrigues-ext@viavarejo.com.br/usuarios/sc
 
 # Função para converter tipos NumPy/Pandas para tipos Python nativos
 def converter_para_python_nativo(obj):
+    import numpy as np
+    import pandas as pd
+    
     if isinstance(obj, dict):
         return {key: converter_para_python_nativo(value) for key, value in obj.items()}
     elif isinstance(obj, list):
         return [converter_para_python_nativo(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(converter_para_python_nativo(item) for item in obj)
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.bool_):
+        return bool(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, pd.Series):
+        return obj.to_dict()
+    elif isinstance(obj, pd.DataFrame):
+        return obj.to_dict('records')
     elif hasattr(obj, 'item'):  # NumPy scalars
         return obj.item()
     elif hasattr(obj, 'tolist'):  # NumPy arrays
@@ -809,10 +826,34 @@ def converter_para_python_nativo(obj):
         return obj
 
 # Converter resultado para tipos Python nativos
-resultado_json_python = converter_para_python_nativo(resultado_json)
-
-with open(json_path, 'w', encoding='utf-8') as f:
-    json.dump(resultado_json_python, f, indent=2, ensure_ascii=False)
+try:
+    resultado_json_python = converter_para_python_nativo(resultado_json)
+    
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(resultado_json_python, f, indent=2, ensure_ascii=False)
+        
+except TypeError as e:
+    print(f"❌ Erro de serialização: {e}")
+    print("🔍 Tentando conversão alternativa...")
+    
+    # Conversão alternativa mais agressiva
+    import json
+    import numpy as np
+    
+    class NumpyEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, np.integer):
+                return int(obj)
+            elif isinstance(obj, np.floating):
+                return float(obj)
+            elif isinstance(obj, np.bool_):
+                return bool(obj)
+            elif isinstance(obj, np.ndarray):
+                return obj.tolist()
+            return super(NumpyEncoder, self).default(obj)
+    
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(resultado_json, f, indent=2, ensure_ascii=False, cls=NumpyEncoder)
 
 print(f"✅ Resultados salvos em: {json_path}")
 print(f"📊 Estrutura do JSON para Visualização:")
