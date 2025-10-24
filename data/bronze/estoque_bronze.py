@@ -184,6 +184,11 @@ print(f"✅ Registros de estoque DEPÓSITOS processados: {estoque_cds_processado
 
 # COMMAND ----------
 
+spark.table("databox.logistica_comum.gef_visao_estoque_lojas").limit(10).display()
+
+
+# COMMAND ----------
+
 print("📊 Carregando dados do GEF...")
 
 # Carregar dados do GEF
@@ -191,8 +196,8 @@ gef_df = (
     spark.table("databox.logistica_comum.gef_visao_estoque_lojas")
     .select(
         F.col("CODIGO_ITEM").alias("CdSku"),
-        F.col("FILIALAJ").alias("CdFilial"),
-        F.date_format(F.col("DATA_ANALISE"), "yyyy-MM-dd").alias("DtAtual"),  # Converter para formato yyyy-MM-dd
+        F.col("FILIAL_AJ").alias("CdFilial"),
+        F.col("DATA_ANALISE").alias("DtAtual"),
         F.col("ESTOQUE_SEGURANCA"),
         F.col("LEADTIME_MEDIO"),
         F.col("COBERTURA_ES_DIAS"),
@@ -204,10 +209,9 @@ gef_df = (
         F.col("GRADE"),
         F.col("TRANSITO"),
         F.col("ESTOQUE_PROJETADO"),
-        F.col("COBERTURA_ATUAL_C_TRANISTO_DIAS"),
+        F.col("COBERTURA_ATUAL_C_TRANSITO_DIAS"),
         F.col("MEDIA_3"),
         F.col("MEDIA_6"),
-        F.col("MEDIA_9"),
         F.col("MEDIA_12"),
         F.col("DDV_SO"),
         F.col("DDV_CO"),
@@ -546,5 +550,3 @@ print("🏭 Dados de estoque de depósitos processados e enriquecidos com GEF")
 print("📊 Estrutura: Filial x SKU x Data com métricas de estoque + dados estratégicos GEF")
 print("🔗 Join realizado com dados do GEF (CdFilial + CdSku + DtAtual) para enriquecimento estratégico")
 print("📅 Formato de data: yyyy-MM-dd (convertido de DATA_ANALISE do GEF)")
-
-# COMMAND ----------
