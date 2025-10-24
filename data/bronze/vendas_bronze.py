@@ -78,7 +78,7 @@ df_exemplo = spark.range(1).select(
     F.lit(90).alias("dias_retrocesso")
 )
 
-display(df_exemplo)
+# display(df_exemplo)
 
 # COMMAND ----------
 
@@ -89,17 +89,19 @@ display(df_exemplo)
 
 print(f"🏪 Processando vendas OFFLINE de {data_inicio_int} até {hoje_int}")
 
+# 💾 Cache Strategy: Aplicamos cache nos DataFrames principais que serão
+# reutilizados múltiplas vezes durante o processamento para otimizar performance
 # Carregar tabela de vendas rateadas (offline)
 vendas_rateadas_offline_df = (
-    spark.table("app_venda.vendafaturadarateada")
-    .filter(F.col("NmEstadoMercadoria") != '1 - SALDO')
-    .filter(F.col("NmTipoNegocio") == 'LOJA FISICA')
-    .filter(
+        spark.table("app_venda.vendafaturadarateada")
+        .filter(F.col("NmEstadoMercadoria") != '1 - SALDO')
+        .filter(F.col("NmTipoNegocio") == 'LOJA FISICA')
+        .filter(
         F.col("DtAprovacao").between(data_inicio_int, hoje_int)
-        & (F.col("VrOperacao") >= 0)
-        & (F.col("VrCustoContabilFilialSku") >= 0)
-    )
-)
+            & (F.col("VrOperacao") >= 0)
+            & (F.col("VrCustoContabilFilialSku") >= 0)
+        )
+).cache()
 
 print(f"📊 Registros rateados carregados: {vendas_rateadas_offline_df.count()}")
 
@@ -112,9 +114,9 @@ print(f"📊 Registros rateados carregados: {vendas_rateadas_offline_df.count()}
 
 # Carregar tabela de vendas não rateadas para quantidade
 vendas_nao_rateadas_df = (
-    spark.table("app_venda.vendafaturadanaorateada")
-    .filter(F.col("QtMercadoria") >= 0)
-)
+        spark.table("app_venda.vendafaturadanaorateada")
+        .filter(F.col("QtMercadoria") >= 0)
+).cache()
 
 print(f"📈 Registros não rateados carregados: {vendas_nao_rateadas_df.count()}")
 
@@ -129,8 +131,8 @@ print(f"📈 Registros não rateados carregados: {vendas_nao_rateadas_df.count()
 vendas_offline_unificadas_df = (
     vendas_rateadas_offline_df
     .join(vendas_nao_rateadas_df.select("ChaveFatos", "QtMercadoria"), on="ChaveFatos")
-    .withColumn(
-        "year_month",
+        .withColumn(
+            "year_month",
         F.date_format(
             F.to_date(F.col("DtAprovacao").cast("string"), "yyyyMMdd"), 
             "yyyyMM"
@@ -144,7 +146,7 @@ vendas_offline_unificadas_df = (
             "yyyy-MM-dd"
         )
     )
-)
+).cache()
 
 print(f"🔗 Registros após join: {vendas_offline_unificadas_df.count()}")
 
@@ -158,17 +160,17 @@ print(f"🔗 Registros após join: {vendas_offline_unificadas_df.count()}")
 # Agregar por filial, SKU e data
 vendas_offline_agregadas_df = (
     vendas_offline_unificadas_df.groupBy(
-        "DtAtual",
-        "year_month",
-        "CdSkuLoja",
-        "CdFilial",
+            "DtAtual",
+            "year_month",
+            "CdSkuLoja",
+            "CdFilial",
+        )
+        .agg(
+            F.sum("VrOperacao").alias("Receita"),
+            F.sum("QtMercadoria").alias("QtMercadoria"),
+            F.sum("VrCustoContabilFilialSku").alias("Custo")
+        )
     )
-    .agg(
-        F.sum("VrOperacao").alias("Receita"),
-        F.sum("QtMercadoria").alias("QtMercadoria"),
-        F.sum("VrCustoContabilFilialSku").alias("Custo")
-    )
-)
 
 print(f"📊 Registros após agregação: {vendas_offline_agregadas_df.count()}")
 
@@ -181,24 +183,24 @@ print(f"📊 Registros após agregação: {vendas_offline_agregadas_df.count()}"
 
 # Criar grade completa de datas
 calendario_df = (
-    spark.range(1)
-    .select(
-        F.explode(
-            F.sequence(
+        spark.range(1)
+        .select(
+            F.explode(
+                F.sequence(
                 F.to_date(F.lit(str(data_inicio_int)), "yyyyMMdd"),
                 F.to_date(F.lit(str(hoje_int)), "yyyyMMdd"),
-                F.expr("interval 1 day")
-            )
-        ).alias("DtAtual_date")
+                    F.expr("interval 1 day")
+                )
+            ).alias("DtAtual_date")
+        )
     )
-)
 
 # Conjunto de chaves (Filial x SKU) para loja física
 chaves_filial_sku_df = (
     vendas_offline_unificadas_df
-    .select("CdFilial", "CdSkuLoja")
-    .dropDuplicates()
-)
+          .select("CdFilial", "CdSkuLoja")
+          .dropDuplicates()
+    )
 
 print(f"🔑 Chaves únicas (Filial x SKU): {chaves_filial_sku_df.count()}")
 
@@ -227,7 +229,7 @@ vendas_offline_final_df = (
     grade_completa_offline_df.join(
         vendas_offline_agregadas_com_data_df,
         on=["DtAtual_date", "CdSkuLoja", "CdFilial"],
-        how="left"
+            how="left"
     )
     .withColumn("Receita", F.coalesce(F.col("Receita"), F.lit(0.0)))
     .withColumn("QtMercadoria", F.coalesce(F.col("QtMercadoria"), F.lit(0.0)))
@@ -246,7 +248,7 @@ print(f"✅ Registros finais OFFLINE: {vendas_offline_final_df.count()}")
 
 # Mostrar amostra dos dados
 print("📋 Amostra dos dados OFFLINE:")
-display(vendas_offline_final_df.limit(5))
+# display(vendas_offline_final_df.limit(5))
 
 # COMMAND ----------
 
@@ -257,6 +259,7 @@ display(vendas_offline_final_df.limit(5))
 
 print(f"🌐 Processando vendas ONLINE de {data_inicio_int} até {hoje_int}")
 
+# 💾 Cache Strategy: Reutilizando vendas_nao_rateadas_df já em cache
 # Carregar tabela de vendas rateadas (online)
 vendas_rateadas_online_df = (
     spark.table("app_venda.vendafaturadarateada")
@@ -267,7 +270,7 @@ vendas_rateadas_online_df = (
         & (F.col("VrOperacao") >= 0)
         & (F.col("VrCustoContabilFilialSku") >= 0)
     )
-)
+).cache()
 
 print(f"📊 Registros rateados ONLINE carregados: {vendas_rateadas_online_df.count()}")
 
@@ -297,7 +300,7 @@ vendas_online_unificadas_df = (
             "yyyy-MM-dd"
         )
     )
-)
+).cache()
 
 print(f"🔗 Registros após join ONLINE: {vendas_online_unificadas_df.count()}")
 
@@ -362,10 +365,10 @@ vendas_online_final_df = (
         how="left"
     )
     .withColumn("Receita", F.coalesce(F.col("Receita"), F.lit(0.0)))
-    .withColumn("QtMercadoria", F.coalesce(F.col("QtMercadoria"), F.lit(0.0)))
-    .withColumn("year_month", F.date_format(F.col("DtAtual_date"), "yyyyMM").cast("int"))
+        .withColumn("QtMercadoria", F.coalesce(F.col("QtMercadoria"), F.lit(0.0)))
+        .withColumn("year_month", F.date_format(F.col("DtAtual_date"), "yyyyMM").cast("int"))
     .withColumn("DtAtual", F.date_format(F.col("DtAtual_date"), "yyyy-MM-dd"))
-    .withColumnRenamed("CdSkuLoja", "CdSku")
+        .withColumnRenamed("CdSkuLoja", "CdSku")
     .select("DtAtual", "year_month", "CdFilial", "CdSku", "Receita", "QtMercadoria")
     .withColumn(
         "TeveVenda",
@@ -378,7 +381,7 @@ print(f"✅ Registros finais ONLINE: {vendas_online_final_df.count()}")
 
 # Mostrar amostra dos dados
 print("📋 Amostra dos dados ONLINE:")
-display(vendas_online_final_df.limit(5))
+# display(vendas_online_final_df.limit(5))
 
 # COMMAND ----------
 
@@ -389,6 +392,7 @@ display(vendas_online_final_df.limit(5))
 
 print("🔄 Consolidando vendas ONLINE e OFFLINE com outer join...")
 
+# 💾 Cache Strategy: DataFrame final consolidado em cache para múltiplas operações
 # Validação de dados
 if vendas_offline_final_df.count() == 0 and vendas_online_final_df.count() == 0:
     raise ValueError("Ambos os DataFrames de vendas estão vazios")
@@ -397,17 +401,17 @@ if vendas_offline_final_df.count() == 0 and vendas_online_final_df.count() == 0:
 # Primeiro, vamos preparar os DataFrames para o join
 vendas_offline_preparadas_df = (
     vendas_offline_final_df
-    .withColumnRenamed("Receita", "Receita_OFFLINE")
-    .withColumnRenamed("QtMercadoria", "QtMercadoria_OFFLINE")
-    .withColumnRenamed("TeveVenda", "TeveVenda_OFFLINE")
+    .withColumnRenamed("Receita", "Receita_OFF")
+    .withColumnRenamed("QtMercadoria", "QtMercadoria_OFF")
+    .withColumnRenamed("TeveVenda", "TeveVenda_OFF")
     .drop("Canal")  # Remover coluna Canal pois não precisamos mais
 )
 
 vendas_online_preparadas_df = (
     vendas_online_final_df
-    .withColumnRenamed("Receita", "Receita_ONLINE")
-    .withColumnRenamed("QtMercadoria", "QtMercadoria_ONLINE")
-    .withColumnRenamed("TeveVenda", "TeveVenda_ONLINE")
+    .withColumnRenamed("Receita", "Receita_ON")
+    .withColumnRenamed("QtMercadoria", "QtMercadoria_ON")
+    .withColumnRenamed("TeveVenda", "TeveVenda_ON")
     .drop("Canal")  # Remover coluna Canal pois não precisamos mais
 )
 
@@ -421,25 +425,25 @@ vendas_consolidadas_temp_df = (
     )
 )
 
-# Preencher valores nulos com zeros
+# Preencher valores nulos com zeros para garantir dados completos
 vendas_consolidadas_df = (
     vendas_consolidadas_temp_df
     .fillna(0, subset=[
-        "Receita_OFFLINE", "QtMercadoria_OFFLINE", "TeveVenda_OFFLINE",
-        "Receita_ONLINE", "QtMercadoria_ONLINE", "TeveVenda_ONLINE"
+        "Receita_OFF", "QtMercadoria_OFF", "TeveVenda_OFF",
+        "Receita_ON", "QtMercadoria_ON", "TeveVenda_ON"
     ])
     # Calcular totais consolidados
-    .withColumn("Receita", F.col("Receita_OFFLINE") + F.col("Receita_ONLINE"))
-    .withColumn("QtMercadoria", F.col("QtMercadoria_OFFLINE") + F.col("QtMercadoria_ONLINE"))
-    .withColumn("TeveVenda", F.col("TeveVenda_OFFLINE") + F.col("TeveVenda_ONLINE"))
+    .withColumn("Receita", F.col("Receita_OFF") + F.col("Receita_ON"))
+    .withColumn("QtMercadoria", F.col("QtMercadoria_OFF") + F.col("QtMercadoria_ON"))
+    .withColumn("TeveVenda", F.col("TeveVenda_OFF") + F.col("TeveVenda_ON"))
     # Selecionar colunas finais
     .select(
         "DtAtual", "year_month", "CdFilial", "CdSku",
-        "Receita_OFFLINE", "QtMercadoria_OFFLINE", "TeveVenda_OFFLINE",
-        "Receita_ONLINE", "QtMercadoria_ONLINE", "TeveVenda_ONLINE",
+        "Receita_OFF", "QtMercadoria_OFF", "TeveVenda_OFF",
+        "Receita_ON", "QtMercadoria_ON", "TeveVenda_ON",
         "Receita", "QtMercadoria", "TeveVenda"
     )
-)
+).cache()
 
 print(f"📊 Total de registros consolidados: {vendas_consolidadas_df.count()}")
 
@@ -469,13 +473,13 @@ estatisticas_consolidadas_df = vendas_consolidadas_df.agg(
     F.sum("TeveVenda").alias("Dias_Com_Venda"),
     F.countDistinct("CdFilial").alias("Filiais_Unicas"),
     F.countDistinct("CdSku").alias("SKUs_Unicos"),
-    F.sum("Receita_OFFLINE").alias("Receita_OFFLINE"),
-    F.sum("Receita_ONLINE").alias("Receita_ONLINE"),
-    F.sum("QtMercadoria_OFFLINE").alias("Quantidade_OFFLINE"),
-    F.sum("QtMercadoria_ONLINE").alias("Quantidade_ONLINE")
+    F.sum("Receita_OFF").alias("Receita_OFF"),
+    F.sum("Receita_ON").alias("Receita_ON"),
+    F.sum("QtMercadoria_OFF").alias("Quantidade_OFF"),
+    F.sum("QtMercadoria_ON").alias("Quantidade_ON")
 )
 
-display(estatisticas_consolidadas_df)
+# display(estatisticas_consolidadas_df)
 
 # Mostrar estatísticas por filial (top 10)
 print("📊 Top 10 filiais por receita total:")
@@ -484,8 +488,8 @@ top_filiais_df = (
     .groupBy("CdFilial")
     .agg(
         F.sum("Receita").alias("Receita_Total"),
-        F.sum("Receita_OFFLINE").alias("Receita_OFFLINE"),
-        F.sum("Receita_ONLINE").alias("Receita_ONLINE"),
+        F.sum("Receita_OFF").alias("Receita_OFF"),
+        F.sum("Receita_ON").alias("Receita_ON"),
         F.sum("QtMercadoria").alias("Quantidade_Total"),
         F.sum("TeveVenda").alias("Dias_Com_Venda")
     )
@@ -493,7 +497,7 @@ top_filiais_df = (
     .limit(10)
 )
 
-display(top_filiais_df)
+# display(top_filiais_df)
 
 # COMMAND ----------
 
@@ -538,10 +542,20 @@ try:
     
     print(f"✅ Tabela {TABELA_BRONZE_VENDAS} salva com sucesso!")
     print(f"📊 Registros salvos: {vendas_com_metadados_df.count()}")
-    
+
 except Exception as e:
     print(f"❌ Erro ao salvar tabela {TABELA_BRONZE_VENDAS}: {str(e)}")
     raise
+finally:
+    # Limpar cache para liberar memória
+    print("🧹 Limpando cache para liberar memória...")
+    vendas_rateadas_offline_df.unpersist()
+    vendas_nao_rateadas_df.unpersist()
+    vendas_offline_unificadas_df.unpersist()
+    vendas_rateadas_online_df.unpersist()
+    vendas_online_unificadas_df.unpersist()
+    vendas_consolidadas_df.unpersist()
+    print("✅ Cache limpo com sucesso!")
 
 # COMMAND ----------
 
@@ -556,7 +570,7 @@ spark.table(TABELA_BRONZE_VENDAS).printSchema()
 
 # Mostrar amostra dos dados salvos
 print("📋 Amostra dos dados salvos:")
-display(spark.table(TABELA_BRONZE_VENDAS).limit(5))
+# display(spark.table(TABELA_BRONZE_VENDAS).limit(5))
 
 # COMMAND ----------
 
@@ -580,4 +594,4 @@ print("✅ PROCESSAMENTO CONCLUÍDO COM SUCESSO!")
 print("🔄 Outer join aplicado para garantir todas as combinações filial-SKU")
 print("🔢 Valores nulos preenchidos com zeros")
 print("📊 Estrutura: SKU x Loja x Dia com colunas separadas por canal")
-print("📈 Colunas: Receita_OFFLINE, Receita_ONLINE, QtMercadoria_OFFLINE, QtMercadoria_ONLINE, etc.")
+print("📈 Colunas: Receita_OFF, Receita_ON, QtMercadoria_OFF, QtMercadoria_ON, etc.")
