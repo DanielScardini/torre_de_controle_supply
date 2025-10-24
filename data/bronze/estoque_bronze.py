@@ -114,8 +114,8 @@ print("🏭 Processando estoque de DEPÓSITOS (CDs)...")
 # Carregar dados de estoque dos depósitos
 estoque_cds_df = (
     spark.table("data_engineering_prd.app_logistica.gi_boss_qualidade_estoque")
-    .filter(F.col("DtAtual") >= hoje_str)
-    .filter(F.col("DsEstoqueLojaDeposito") == "D")
+        .filter(F.col("DtAtual") >= hoje_str)
+        .filter(F.col("DsEstoqueLojaDeposito") == "D")
 )
 
 # Aplicar sample se configurado para desenvolvimento
@@ -142,28 +142,10 @@ print("🔄 Transformando dados de estoque LOJAS...")
 # Transformar e limpar dados de estoque das lojas
 estoque_lojas_processado_df = (
     estoque_lojas_df
-        # .select(
-        #     "CdFilial", 
-        #     "CdSku",
-        #     "DsSku",
-        #     "DsSetor",
-        #     "DsCurva",
-        #     "DsCurvaAbcLoja",
-        #     "StLinha",
-        #     "DsObrigatorio",
-        #     "DsVoltagem",
-        #     F.col("DsTipoEntrega").alias("TipoEntrega"),
-        #     F.col("CdEstoqueFilialAbastecimento").alias("QtdEstoqueCDVinculado"),
-        #     (F.col("VrTotalVv")/F.col("VrVndCmv")).alias("DDE"),
-        #     F.col("QtEstoqueBoaOff").alias("EstoqueLoja"),
-        #     F.col("DsFaixaDde").alias("ClassificacaoDDE"),
-        #     F.col("data_ingestao"),
-        #     F.date_format(F.col("data_ingestao"), "yyyy-MM-dd").alias("DtAtual")    
-        # )
-        # .dropDuplicates(["DtAtual", "CdSku", "CdFilial"])
     .withColumn("TipoEstoque", F.lit("LOJA"))
     .withColumn("DDE", (F.col("VrTotalVv")/F.col("VrVndCmv")))
     .withColumn("DtAtual", F.date_format(F.col("data_ingestao"), "yyyy-MM-dd"))
+    .dropDuplicates(["DtAtual", "CdSku", "CdFilial"]) # Garantir unicidade
 ).cache()
 
 print(f"✅ Registros de estoque LOJAS processados: {estoque_lojas_processado_df.count()}")
@@ -183,242 +165,13 @@ print("🔄 Transformando dados de estoque DEPÓSITOS...")
 # Transformar e limpar dados de estoque dos depósitos
 estoque_cds_processado_df = (
     estoque_cds_df
-        # .select(
-        #     "CdFilial", 
-        #     "CdSku",
-        #     "DsSku",
-        #     "DsSetor",
-        #     "DsCurva",
-        #     "DsCurvaAbcLoja",
-        #     "StLinha",
-        #     "DsObrigatorio",
-        #     "DsVoltagem",
-        #     F.col("DsTipoEntrega").alias("TipoEntrega"),
-        #     F.col("CdEstoqueFilialAbastecimento").alias("QtdEstoqueCDVinculado"),
-        #     (F.col("VrTotalVv")/F.col("VrVndCmv")).alias("DDE"),
-    #     F.col("QtEstoqueBoaOff").alias("EstoqueDeposito"),
-        #     F.col("DsFaixaDde").alias("ClassificacaoDDE"),
-        #     F.col("data_ingestao"),
-        #     F.date_format(F.col("data_ingestao"), "yyyy-MM-dd").alias("DtAtual")    
-        # )
-        # .dropDuplicates(["DtAtual", "CdSku", "CdFilial"])
     .withColumn("TipoEstoque", F.lit("CD"))
     .withColumn("DDE", (F.col("VrTotalVv")/F.col("VrVndCmv")))
-    .withColumn("DtAtual", F.date_format(F.col("data_ingestao"), "yyyy-MM-dd")
-)
+    .withColumn("DtAtual", F.date_format(F.col("data_ingestao"), "yyyy-MM-dd"))
+    .dropDuplicates(["DtAtual", "CdSku", "CdFilial"]) # Garantir unicidade
 ).cache()
 
 print(f"✅ Registros de estoque DEPÓSITOS processados: {estoque_cds_processado_df.count()}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Análise Estatística dos Dados
-# MAGIC
-# MAGIC Este bloco apresenta estatísticas resumidas dos dados de estoque processados,
-# MAGIC incluindo totais de registros, filiais únicas, SKUs únicos e distribuição por tipo.
-
-# COMMAND ----------
-
-# Mostrar estatísticas das lojas
-print("📈 Estatísticas de estoque LOJAS:")
-estatisticas_lojas_df = estoque_lojas_processado_df.agg(
-    F.count("*").alias("Total_Registros"),
-    F.countDistinct("CdFilial").alias("Filiais_Unicas"),
-    F.countDistinct("CdSku").alias("SKUs_Unicos"),
-    F.median("DDE").alias("DDE_Mediano")
-)
-
-display(estatisticas_lojas_df)
-
-# Mostrar estatísticas dos depósitos
-print("📈 Estatísticas de estoque DEPÓSITOS:")
-estatisticas_cds_df = estoque_cds_processado_df.agg(
-    F.count("*").alias("Total_Registros"),
-    F.countDistinct("CdFilial").alias("Filiais_Unicas"),
-    F.countDistinct("CdSku").alias("SKUs_Unicos"),
-    F.median("DDE").alias("DDE_Mediano")
-)
-
-display(estatisticas_cds_df)
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Adição de Metadados de Processamento - Lojas
-# MAGIC
-# MAGIC Este bloco adiciona colunas de metadados ao DataFrame de estoque das lojas,
-# MAGIC como `DataHoraProcessamento`, `DataProcessamento`, `FonteDados` e `VersaoProcessamento`.
-
-# COMMAND ----------
-
-print("💾 Adicionando metadados de processamento LOJAS...")
-
-# Adicionar metadados de processamento
-estoque_lojas_com_metadados_df = estoque_lojas_processado_df.withColumn(
-    "DataHoraProcessamento",
-    F.current_timestamp()
-).withColumn(
-    "DataProcessamento",
-    F.current_date()
-).withColumn(
-    "FonteDados",
-    F.lit("data_engineering_prd.app_logistica.gi_boss_qualidade_estoque")
-).withColumn(
-    "VersaoProcessamento",
-    F.lit("1.0")
-)
-
-print(f"✅ Metadados adicionados LOJAS. Total de registros: {estoque_lojas_com_metadados_df.count()}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Adição de Metadados de Processamento - Depósitos
-# MAGIC
-# MAGIC Este bloco adiciona colunas de metadados ao DataFrame de estoque dos depósitos,
-# MAGIC como `DataHoraProcessamento`, `DataProcessamento`, `FonteDados` e `VersaoProcessamento`.
-
-# COMMAND ----------
-
-print("💾 Adicionando metadados de processamento DEPÓSITOS...")
-
-# Adicionar metadados de processamento
-estoque_cds_com_metadados_df = estoque_cds_processado_df.withColumn(
-    "DataHoraProcessamento",
-    F.current_timestamp()
-).withColumn(
-    "DataProcessamento",
-    F.current_date()
-).withColumn(
-    "FonteDados",
-    F.lit("data_engineering_prd.app_logistica.gi_boss_qualidade_estoque")
-).withColumn(
-    "VersaoProcessamento",
-    F.lit("1.0")
-)
-
-print(f"✅ Metadados adicionados DEPÓSITOS. Total de registros: {estoque_cds_com_metadados_df.count()}")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Salvamento na Camada Bronze - Lojas
-# MAGIC
-# MAGIC Este bloco salva o DataFrame de estoque das lojas na tabela Delta da camada Bronze,
-# MAGIC utilizando o modo `overwrite` para garantir que a tabela seja sempre atualizada.
-
-# COMMAND ----------
-
-print(f"💾 Salvando tabela {TABELA_BRONZE_ESTOQUE_LOJA} no modo overwrite...")
-
-try:
-    # Salvar na camada Bronze
-    estoque_lojas_com_metadados_df.write \
-        .format("delta") \
-        .mode("overwrite") \
-        .option("overwriteSchema", "true") \
-        .saveAsTable(TABELA_BRONZE_ESTOQUE_LOJA)
-    
-    print(f"✅ Tabela {TABELA_BRONZE_ESTOQUE_LOJA} salva com sucesso!")
-    print(f"📊 Registros salvos LOJAS: {estoque_lojas_com_metadados_df.count()}")
-
-except Exception as e:
-    print(f"❌ Erro ao salvar tabela {TABELA_BRONZE_ESTOQUE_LOJA}: {str(e)}")
-    raise
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Salvamento na Camada Bronze - Depósitos
-# MAGIC
-# MAGIC Este bloco salva o DataFrame de estoque dos depósitos na tabela Delta da camada Bronze,
-# MAGIC utilizando o modo `overwrite` para garantir que a tabela seja sempre atualizada.
-
-# COMMAND ----------
-
-print(f"💾 Salvando tabela {TABELA_BRONZE_ESTOQUE_CD} no modo overwrite...")
-
-try:
-    # Salvar na camada Bronze
-    estoque_cds_com_metadados_df.write \
-        .format("delta") \
-        .mode("overwrite") \
-        .option("overwriteSchema", "true") \
-        .saveAsTable(TABELA_BRONZE_ESTOQUE_CD)
-    
-    print(f"✅ Tabela {TABELA_BRONZE_ESTOQUE_CD} salva com sucesso!")
-    print(f"📊 Registros salvos DEPÓSITOS: {estoque_cds_com_metadados_df.count()}")
-
-except Exception as e:
-    print(f"❌ Erro ao salvar tabela {TABELA_BRONZE_ESTOQUE_CD}: {str(e)}")
-    raise
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Validação das Tabelas Salvas
-# MAGIC
-# MAGIC Este bloco realiza uma leitura das tabelas recém-salvas para verificar
-# MAGIC seus schemas e exibir amostras dos dados, confirmando que o salvamento
-# MAGIC foi bem-sucedido.
-
-# COMMAND ----------
-
-print(f"🔍 Validando tabelas salvas...")
-
-# Validar tabela de lojas
-print("📋 Schema da tabela LOJAS:")
-spark.table(TABELA_BRONZE_ESTOQUE_LOJA).printSchema()
-
-# Validar tabela de depósitos
-print("📋 Schema da tabela DEPÓSITOS:")
-spark.table(TABELA_BRONZE_ESTOQUE_CD).printSchema()
-
-print("✅ Validação concluída com sucesso!")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Limpeza de Cache
-# MAGIC
-# MAGIC Este bloco limpa o cache dos DataFrames para liberar memória após o processamento.
-
-# COMMAND ----------
-
-print("🧹 Limpando cache para liberar memória...")
-
-# Limpar cache
-estoque_lojas_df.unpersist()
-estoque_cds_df.unpersist()
-estoque_lojas_processado_df.unpersist()
-estoque_cds_processado_df.unpersist()
-
-print("✅ Cache limpo com sucesso!")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Resumo Final do Processamento
-# MAGIC
-# MAGIC Este bloco finaliza o notebook com um resumo das principais informações
-# MAGIC do processamento, incluindo contagem de registros e tabelas de destino.
-
-# COMMAND ----------
-
-print("🎉 Processamento de estoque Bronze concluído com sucesso!")
-print("=" * 80)
-print("📊 RESUMO DO PROCESSAMENTO:")
-print(f"  • Data de processamento: {hoje_str}")
-print(f"  • Registros lojas: {estoque_lojas_com_metadados_df.count():,}")
-print(f"  • Registros depósitos: {estoque_cds_com_metadados_df.count():,}")
-print(f"  • Tabela lojas: {TABELA_BRONZE_ESTOQUE_LOJA}")
-print(f"  • Tabela depósitos: {TABELA_BRONZE_ESTOQUE_CD}")
-print("=" * 80)
-print("✅ PROCESSAMENTO CONCLUÍDO COM SUCESSO!")
-print("🏪 Dados de estoque de lojas processados")
-print("🏭 Dados de estoque de depósitos processados")
-print("📊 Estrutura: Filial x SKU x Data com métricas de estoque")
 
 # COMMAND ----------
 
@@ -439,6 +192,7 @@ gef_df = (
     .select(
         F.col("CODIGO_ITEM").alias("CdSku"),
         F.col("FILIALAJ").alias("CdFilial"),
+        F.date_format(F.col("DATA_ANALISE"), "yyyy-MM-dd").alias("DtAtual"),  # Converter para formato yyyy-MM-dd
         F.col("ESTOQUE_SEGURANCA"),
         F.col("LEADTIME_MEDIO"),
         F.col("COBERTURA_ES_DIAS"),
@@ -457,7 +211,6 @@ gef_df = (
         F.col("MEDIA_12"),
         F.col("DDV_SO"),
         F.col("DDV_CO"),
-        F.col("DATA_ANALISE"),
         F.col("CLUSTER_OBG"),
         F.col("CLUSTER_SUG")
     )
@@ -472,44 +225,48 @@ gef_df = gef_df.cache()
 
 print(f"📊 Registros do GEF carregados: {gef_df.count()}")
 
+# Mostrar amostra das datas para validação
+print("📅 Validação do formato de datas no GEF:")
+gef_df.select("DtAtual").distinct().orderBy("DtAtual").show(10, truncate=False)
+
 # Validação de duplicatas nas chaves de join
 print("🔍 Validando chaves de join para evitar multiplicação de registros...")
 
-# Verificar duplicatas no GEF
-duplicatas_gef = gef_df.groupBy("CdFilial", "CdSku").count().filter(F.col("count") > 1)
+# Verificar duplicatas no GEF (incluindo data)
+duplicatas_gef = gef_df.groupBy("CdFilial", "CdSku", "DtAtual").count().filter(F.col("count") > 1)
 total_duplicatas_gef = duplicatas_gef.count()
 
 print(f"📊 Validação de duplicatas GEF:")
-print(f"  • Chaves duplicadas no GEF: {total_duplicatas_gef:,}")
+print(f"  • Chaves duplicadas no GEF (Filial+SKU+DtAtual): {total_duplicatas_gef:,}")
 
 if total_duplicatas_gef > 0:
     print("⚠️  ATENÇÃO: GEF contém chaves duplicadas! Isso pode causar multiplicação de registros.")
     print("🔧 Solução: Remover duplicatas do GEF antes do join")
     
     # Remover duplicatas do GEF mantendo apenas o primeiro registro
-    gef_df = gef_df.dropDuplicates(["CdFilial", "CdSku"]).cache()
+    gef_df = gef_df.dropDuplicates(["CdFilial", "CdSku", "DtAtual"]).cache()
     print(f"✅ Duplicatas removidas do GEF. Novos registros: {gef_df.count():,}")
 else:
     print("✅ GEF não contém chaves duplicadas")
 
-# Verificar duplicatas no estoque das lojas
-duplicatas_lojas = estoque_lojas_processado_df.groupBy("CdFilial", "CdSku").count().filter(F.col("count") > 1)
+# Verificar duplicatas no estoque das lojas (incluindo data)
+duplicatas_lojas = estoque_lojas_processado_df.groupBy("CdFilial", "CdSku", "DtAtual").count().filter(F.col("count") > 1)
 total_duplicatas_lojas = duplicatas_lojas.count()
 
 print(f"📊 Validação de duplicatas Estoque Lojas:")
-print(f"  • Chaves duplicadas no estoque lojas: {total_duplicatas_lojas:,}")
+print(f"  • Chaves duplicadas no estoque lojas (Filial+SKU+DtAtual): {total_duplicatas_lojas:,}")
 
 if total_duplicatas_lojas > 0:
     print("⚠️  ATENÇÃO: Estoque lojas contém chaves duplicadas!")
 else:
     print("✅ Estoque lojas não contém chaves duplicadas")
 
-# Verificar duplicatas no estoque dos depósitos
-duplicatas_cds = estoque_cds_processado_df.groupBy("CdFilial", "CdSku").count().filter(F.col("count") > 1)
+# Verificar duplicatas no estoque dos depósitos (incluindo data)
+duplicatas_cds = estoque_cds_processado_df.groupBy("CdFilial", "CdSku", "DtAtual").count().filter(F.col("count") > 1)
 total_duplicatas_cds = duplicatas_cds.count()
 
 print(f"📊 Validação de duplicatas Estoque Depósitos:")
-print(f"  • Chaves duplicadas no estoque depósitos: {total_duplicatas_cds:,}")
+print(f"  • Chaves duplicadas no estoque depósitos (Filial+SKU+DtAtual): {total_duplicatas_cds:,}")
 
 if total_duplicatas_cds > 0:
     print("⚠️  ATENÇÃO: Estoque depósitos contém chaves duplicadas!")
@@ -526,7 +283,7 @@ else:
 
 # COMMAND ----------
 
-print("🔗 Realizando join entre estoque LOJAS e dados GEF...")
+print("🔗 Realizando join entre estoque LOJAS e dados GEF (Filial + SKU + Data)...")
 
 # Validação antes do join
 registros_antes_join_lojas = estoque_lojas_processado_df.count()
@@ -535,13 +292,14 @@ registros_gef = gef_df.count()
 print(f"📊 Validação antes do join LOJAS:")
 print(f"  • Registros estoque lojas: {registros_antes_join_lojas:,}")
 print(f"  • Registros GEF: {registros_gef:,}")
+print(f"  • Chaves de join: CdFilial + CdSku + DtAtual")
 
-# Join entre estoque das lojas e dados do GEF
+# Join entre estoque das lojas e dados do GEF (incluindo data)
 estoque_lojas_com_gef_df = (
     estoque_lojas_processado_df
     .join(
         gef_df,
-        on=["CdFilial", "CdSku"],
+        on=["CdFilial", "CdSku", "DtAtual"],
         how="left"
     )
     .withColumn("TipoEstoque", F.lit("LOJA"))
@@ -573,7 +331,7 @@ else:
 
 # COMMAND ----------
 
-print("🔗 Realizando join entre estoque DEPÓSITOS e dados GEF...")
+print("🔗 Realizando join entre estoque DEPÓSITOS e dados GEF (Filial + SKU + Data)...")
 
 # Validação antes do join
 registros_antes_join_cds = estoque_cds_processado_df.count()
@@ -581,13 +339,14 @@ registros_antes_join_cds = estoque_cds_processado_df.count()
 print(f"📊 Validação antes do join DEPÓSITOS:")
 print(f"  • Registros estoque depósitos: {registros_antes_join_cds:,}")
 print(f"  • Registros GEF: {registros_gef:,}")
+print(f"  • Chaves de join: CdFilial + CdSku + DtAtual")
 
-# Join entre estoque dos depósitos e dados do GEF
+# Join entre estoque dos depósitos e dados do GEF (incluindo data)
 estoque_cds_com_gef_df = (
     estoque_cds_processado_df
     .join(
         gef_df,
-        on=["CdFilial", "CdSku"],
+        on=["CdFilial", "CdSku", "DtAtual"],
         how="left"
     )
     .withColumn("TipoEstoque", F.lit("CD"))
@@ -608,42 +367,6 @@ if registros_apos_join_cds != registros_antes_join_cds:
     print("⚠️  ATENÇÃO: Join gerou aumento de registros!")
 else:
     print("✅ Join manteve quantidade de registros (left join correto)")
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ## Análise Estatística dos Dados Enriquecidos
-# MAGIC
-# MAGIC Este bloco apresenta estatísticas dos dados de estoque enriquecidos com informações do GEF,
-# MAGIC incluindo análise de cobertura de dados e distribuição das métricas estratégicas.
-
-# COMMAND ----------
-
-# Mostrar estatísticas das lojas enriquecidas
-print("📈 Estatísticas de estoque LOJAS + GEF:")
-estatisticas_lojas_gef_df = estoque_lojas_com_gef_df.agg(
-    F.count("*").alias("Total_Registros"),
-    F.countDistinct("CdFilial").alias("Filiais_Unicas"),
-    F.countDistinct("CdSku").alias("SKUs_Unicos"),
-    F.count(F.when(F.col("ESTOQUE_SEGURANCA").isNotNull(), 1)).alias("Registros_Com_GEF"),
-    F.avg("DDE").alias("DDE_Medio"),
-    F.avg("COBERTURA_ATUAL").alias("Cobertura_Media")
-)
-
-# display(estatisticas_lojas_gef_df)
-
-# Mostrar estatísticas dos depósitos enriquecidos
-print("📈 Estatísticas de estoque DEPÓSITOS + GEF:")
-estatisticas_cds_gef_df = estoque_cds_com_gef_df.agg(
-    F.count("*").alias("Total_Registros"),
-    F.countDistinct("CdFilial").alias("Filiais_Unicas"),
-    F.countDistinct("CdSku").alias("SKUs_Unicos"),
-    F.count(F.when(F.col("ESTOQUE_SEGURANCA").isNotNull(), 1)).alias("Registros_Com_GEF"),
-    F.avg("DDE").alias("DDE_Medio"),
-    F.avg("COBERTURA_ATUAL").alias("Cobertura_Media")
-)
-
-# display(estatisticas_cds_gef_df)
 
 # COMMAND ----------
 
@@ -756,21 +479,22 @@ except Exception as e:
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Validação das Tabelas Enriquecidas
+# MAGIC ## Validação das Tabelas Salvas
 # MAGIC
 # MAGIC Este bloco realiza uma leitura das tabelas recém-salvas para verificar
-# MAGIC seus schemas e exibir amostras dos dados enriquecidos.
+# MAGIC seus schemas e exibir amostras dos dados, confirmando que o salvamento
+# MAGIC foi bem-sucedido.
 
 # COMMAND ----------
 
-print(f"🔍 Validando tabelas enriquecidas...")
+print(f"🔍 Validando tabelas salvas...")
 
-# Validar tabela de lojas enriquecida
-print("📋 Schema da tabela LOJAS + GEF:")
+# Validar tabela de lojas
+print("📋 Schema da tabela LOJAS:")
 spark.table(TABELA_BRONZE_ESTOQUE_LOJA).printSchema()
 
-# Validar tabela de depósitos enriquecida
-print("📋 Schema da tabela DEPÓSITOS + GEF:")
+# Validar tabela de depósitos
+print("📋 Schema da tabela DEPÓSITOS:")
 spark.table(TABELA_BRONZE_ESTOQUE_CD).printSchema()
 
 print("✅ Validação concluída com sucesso!")
@@ -807,7 +531,7 @@ print("✅ Cache limpo com sucesso!")
 
 # COMMAND ----------
 
-print("🎉 Processamento de estoque Bronze + GEF concluído com sucesso!")
+print("🎉 Processamento de estoque Bronze concluído com sucesso!")
 print("=" * 80)
 print("📊 RESUMO DO PROCESSAMENTO:")
 print(f"  • Data de processamento: {hoje_str}")
@@ -817,7 +541,10 @@ print(f"  • Tabela lojas: {TABELA_BRONZE_ESTOQUE_LOJA}")
 print(f"  • Tabela depósitos: {TABELA_BRONZE_ESTOQUE_CD}")
 print("=" * 80)
 print("✅ PROCESSAMENTO CONCLUÍDO COM SUCESSO!")
-print("🏪 Dados de estoque de lojas enriquecidos com GEF")
-print("🏭 Dados de estoque de depósitos enriquecidos com GEF")
-print("📊 Estrutura: Filial x SKU x Data com métricas de estoque + estratégicas")
-print("🎯 Dados GEF incluídos: Estoque segurança, Lead time, Cobertura, Demanda, Projeções")
+print("🏪 Dados de estoque de lojas processados e enriquecidos com GEF")
+print("🏭 Dados de estoque de depósitos processados e enriquecidos com GEF")
+print("📊 Estrutura: Filial x SKU x Data com métricas de estoque + dados estratégicos GEF")
+print("🔗 Join realizado com dados do GEF (CdFilial + CdSku + DtAtual) para enriquecimento estratégico")
+print("📅 Formato de data: yyyy-MM-dd (convertido de DATA_ANALISE do GEF)")
+
+# COMMAND ----------
