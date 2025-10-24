@@ -37,7 +37,7 @@ TIMEZONE_SP = timezone('America/Sao_Paulo')
 spark = SparkSession.builder.appName("vendas_bronze").getOrCreate()
 
 # Data de processamento (ontem)
-hoje = datetime.now(TIMEZONE_SP) - timedelta(days=1)
+hoje = datetime.now(TIMEZONE_SP) - timedelta(days=0)
 hoje_str = hoje.strftime("%Y-%m-%d")
 hoje_int = int(hoje.strftime("%Y%m%d"))
 
@@ -54,7 +54,7 @@ print(f"🌍 Timezone: {TIMEZONE_SP}")
 # COMMAND ----------
 
 # Configuração do período de análise
-dias_retrocesso = 90
+dias_retrocesso = 1
 
 # Validação do parâmetro
 if dias_retrocesso < 0:
@@ -75,7 +75,7 @@ print(f"🔢 Data início int: {data_inicio_int}")
 df_exemplo = spark.range(1).select(
     F.lit(data_inicio).alias("data_inicio"),
     F.lit(data_inicio_int).alias("data_inicio_int"),
-    F.lit(90).alias("dias_retrocesso")
+    F.lit(dias_retrocesso).alias("dias_retrocesso")
 )
 
 # display(df_exemplo)
@@ -116,7 +116,9 @@ print(f"📊 Registros rateados carregados: {vendas_rateadas_offline_df.count()}
 vendas_nao_rateadas_df = (
         spark.table("app_venda.vendafaturadanaorateada")
         .filter(F.col("QtMercadoria") >= 0)
-).cache()
+        # TODO - filtrar por day_partition, month_partition e year_partition baseado na data de hoje
+        #.filter()
+)
 
 print(f"📈 Registros não rateados carregados: {vendas_nao_rateadas_df.count()}")
 
