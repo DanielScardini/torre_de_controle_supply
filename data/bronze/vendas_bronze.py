@@ -292,7 +292,7 @@ vendas_online_unificadas_df = (
             "yyyyMM"
         ).cast("int")
     )
-    .withColumnRenamed("CdFilialVenda", "CdFilial")
+    .withColumnRenamed("CdFilialEmissao", "CdFilial")
     .withColumn(
         "DtAtual",
         F.date_format(
