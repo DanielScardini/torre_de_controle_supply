@@ -1,0 +1,477 @@
+{
+  "metadata": {
+    "tipo_analise": "CD→CD",
+    "data_processamento": "2025-10-24 20:59:11",
+    "tabela_origem": "data_engineering_prd.context_logistica.planoabastecimento",
+    "total_registros_processados": 1072
+  },
+  "estatisticas_gerais": {
+    "total_nos": 24,
+    "total_arestas": 25,
+    "densidade": 0.04528985507246377,
+    "nos_visualizados": 24,
+    "arestas_visualizadas": 25
+  },
+  "analise_cd_cd": {
+    "cds_unicos_atendem": 6,
+    "cds_unicos_atendidos": 23,
+    "total_conexoes": 25,
+    "top_cds_por_grau_saida": {
+      "1200": 11,
+      "1887": 6,
+      "1400": 3,
+      "1475": 2,
+      "1895": 2,
+      "1401": 1
+    },
+    "top_cds_por_grau_entrada": {
+      "1445": 2,
+      "1624": 2,
+      "1088": 1,
+      "2241": 1,
+      "0022": 1,
+      "1999": 1,
+      "1877": 1,
+      "1875": 1,
+      "1792": 1,
+      "1736": 1
+    }
+  },
+  "complexidade_cd_cd": {
+    "total_sccs": 24,
+    "sccs_com_ciclos": 0,
+    "sccs_isoladas": 24,
+    "cds_em_ciclos": 0,
+    "maior_ciclo": 0
+  },
+  "hierarquia_cd_cd": {
+    "cds_fonte": 1,
+    "profundidade_maxima": 3,
+    "niveis_unicos": 4,
+    "distribuicao_niveis": {
+      "0": 1,
+      "1": 11,
+      "2": 6,
+      "3": 6
+    }
+  },
+  "conexoes": [
+    {
+      "origem": "1200",
+      "destino": "1088",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1200",
+      "destino": "1400",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1200",
+      "destino": "1401",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1200",
+      "destino": "1445",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1200",
+      "destino": "1475",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1200",
+      "destino": "1500",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1200",
+      "destino": "1600",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1200",
+      "destino": "1624",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1200",
+      "destino": "1635",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1200",
+      "destino": "1760",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1200",
+      "destino": "1895",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1400",
+      "destino": "1673",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1400",
+      "destino": "1887",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1400",
+      "destino": "2241",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1401",
+      "destino": "1640",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1475",
+      "destino": "1445",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1475",
+      "destino": "1624",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1887",
+      "destino": "1454",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1887",
+      "destino": "1736",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1887",
+      "destino": "1792",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1887",
+      "destino": "1875",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1887",
+      "destino": "1877",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1887",
+      "destino": "1999",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1895",
+      "destino": "0022",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    },
+    {
+      "origem": "1895",
+      "destino": "1778",
+      "tipo": "CD→CD",
+      "origem_tipo": "CD",
+      "destino_tipo": "CD"
+    }
+  ],
+  "nos": [
+    {
+      "id": "1200",
+      "tipo": "CD",
+      "grau_total": 11,
+      "grau_entrada": 0,
+      "grau_saida": 11,
+      "nivel_hierarquico": 0,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1088",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 1,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1400",
+      "tipo": "CD",
+      "grau_total": 4,
+      "grau_entrada": 1,
+      "grau_saida": 3,
+      "nivel_hierarquico": 1,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1401",
+      "tipo": "CD",
+      "grau_total": 2,
+      "grau_entrada": 1,
+      "grau_saida": 1,
+      "nivel_hierarquico": 1,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1445",
+      "tipo": "CD",
+      "grau_total": 2,
+      "grau_entrada": 2,
+      "grau_saida": 0,
+      "nivel_hierarquico": 1,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1475",
+      "tipo": "CD",
+      "grau_total": 3,
+      "grau_entrada": 1,
+      "grau_saida": 2,
+      "nivel_hierarquico": 1,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1500",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 1,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1600",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 1,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1624",
+      "tipo": "CD",
+      "grau_total": 2,
+      "grau_entrada": 2,
+      "grau_saida": 0,
+      "nivel_hierarquico": 1,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1635",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 1,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1760",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 1,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1895",
+      "tipo": "CD",
+      "grau_total": 3,
+      "grau_entrada": 1,
+      "grau_saida": 2,
+      "nivel_hierarquico": 1,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1673",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 2,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1887",
+      "tipo": "CD",
+      "grau_total": 7,
+      "grau_entrada": 1,
+      "grau_saida": 6,
+      "nivel_hierarquico": 2,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "2241",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 2,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1640",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 2,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1454",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 3,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1736",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 3,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1792",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 3,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1875",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 3,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1877",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 3,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1999",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 3,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "0022",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 2,
+      "em_ciclo": false,
+      "scc_size": 1
+    },
+    {
+      "id": "1778",
+      "tipo": "CD",
+      "grau_total": 1,
+      "grau_entrada": 1,
+      "grau_saida": 0,
+      "nivel_hierarquico": 2,
+      "em_ciclo": false,
+      "scc_size": 1
+    }
+  ]
+}
