@@ -136,17 +136,34 @@ print(f"  • Conexões CD→CD encontradas: {len(conexoes_cd_cd):,}")
 print(f"  • CDs únicos que atendem: {conexoes_cd_cd[COLUNA_CD_ATENDE].nunique():,}")
 print(f"  • CDs únicos que são atendidos: {conexoes_cd_cd[COLUNA_CD_ENTREGA].nunique():,}")
 
-print(f"\n📊 Análise CD→Loja (quando CdFilialAtende == CdFilialEntrega):")
+print(f"\n📊 Análise CD→Loja (TODOS os CdFilialEntrega entregam em lojas):")
 conexoes_cd_loja = plano_pandas[
+    (plano_pandas[COLUNA_CD_ENTREGA].notna()) &
+    (plano_pandas[COLUNA_LOJA].notna())
+]
+
+print(f"  📋 NOTA: CdFilialEntrega SEMPRE entrega em lojas, CdLoja é SEMPRE LOJA")
+print(f"  • Conexões CD→Loja encontradas: {len(conexoes_cd_loja):,}")
+print(f"  • CDs únicos que entregam: {conexoes_cd_loja[COLUNA_CD_ENTREGA].nunique():,}")
+print(f"  • Lojas únicas atendidas: {conexoes_cd_loja[COLUNA_LOJA].nunique():,}")
+
+# Análise específica: CD atendendo suas próprias lojas vs CD atendendo outros CDs
+print(f"\n📊 Análise Detalhada:")
+cd_atende_proprio = plano_pandas[
     (plano_pandas[COLUNA_CD_ATENDE] == plano_pandas[COLUNA_CD_ENTREGA]) &
     (plano_pandas[COLUNA_CD_ATENDE].notna()) &
     (plano_pandas[COLUNA_LOJA].notna())
 ]
 
-print(f"  📋 NOTA: CdFilialAtende é SEMPRE CD, CdLoja é SEMPRE LOJA")
-print(f"  • Conexões CD→Loja encontradas: {len(conexoes_cd_loja):,}")
-print(f"  • CDs únicos que atendem lojas: {conexoes_cd_loja[COLUNA_CD_ATENDE].nunique():,}")
-print(f"  • Lojas únicas atendidas: {conexoes_cd_loja[COLUNA_LOJA].nunique():,}")
+cd_atende_outro = plano_pandas[
+    (plano_pandas[COLUNA_CD_ATENDE] != plano_pandas[COLUNA_CD_ENTREGA]) &
+    (plano_pandas[COLUNA_CD_ATENDE].notna()) &
+    (plano_pandas[COLUNA_CD_ENTREGA].notna()) &
+    (plano_pandas[COLUNA_LOJA].notna())
+]
+
+print(f"  • CD atendendo suas próprias lojas: {len(cd_atende_proprio):,}")
+print(f"  • CD atendendo outros CDs que entregam: {len(cd_atende_outro):,}")
 
 print(f"\n📊 Análise Combinada:")
 print(f"  • Total de CDs únicos: {plano_pandas[COLUNA_CD_ATENDE].nunique():,}")
@@ -189,25 +206,25 @@ else:
     conexoes_cd_cd_df = pd.DataFrame(columns=['cd_atende', 'cd_entrega'])
     print("⚠️ Nenhuma conexão CD→CD encontrada")
 
-# Preparar dados para CD→Loja
+# Preparar dados para CD→Loja (CdFilialEntrega → CdLoja)
 if len(conexoes_cd_loja) > 0:
-    conexoes_cd_loja_df = conexoes_cd_loja[[COLUNA_CD_ATENDE, COLUNA_LOJA]].copy()
-    conexoes_cd_loja_df.columns = ['cd_atende', 'loja_atendida']
+    conexoes_cd_loja_df = conexoes_cd_loja[[COLUNA_CD_ENTREGA, COLUNA_LOJA]].copy()
+    conexoes_cd_loja_df.columns = ['cd_entrega', 'loja_atendida']
     
     # Remover duplicatas
     conexoes_cd_loja_df = conexoes_cd_loja_df.drop_duplicates()
     
     print(f"✅ Conexões CD→Loja preparadas: {len(conexoes_cd_loja_df):,}")
-    print(f"  • CDs únicos: {conexoes_cd_loja_df['cd_atende'].nunique():,}")
-    print(f"  • Lojas únicas: {conexoes_cd_loja_df['loja_atendida'].nunique():,}")
+    print(f"  • CDs únicos que entregam: {conexoes_cd_loja_df['cd_entrega'].nunique():,}")
+    print(f"  • Lojas únicas atendidas: {conexoes_cd_loja_df['loja_atendida'].nunique():,}")
     
     # Top 10 CDs por número de lojas atendidas
-    top_cds_lojas = conexoes_cd_loja_df['cd_atende'].value_counts().head(10)
+    top_cds_lojas = conexoes_cd_loja_df['cd_entrega'].value_counts().head(10)
     print(f"  • Top 10 CDs por lojas atendidas:")
     for cd, count in top_cds_lojas.items():
         print(f"    - {cd}: {count} lojas")
 else:
-    conexoes_cd_loja_df = pd.DataFrame(columns=['cd_atende', 'loja_atendida'])
+    conexoes_cd_loja_df = pd.DataFrame(columns=['cd_entrega', 'loja_atendida'])
     print("⚠️ Nenhuma conexão CD→Loja encontrada")
 
 # COMMAND ----------
@@ -263,7 +280,7 @@ if usar_grafo_cd_cd:
 if usar_grafo_cd_loja:
     print(f"🔗 Adicionando {len(conexoes_cd_loja_df):,} arestas CD→Loja...")
     for _, row in conexoes_cd_loja_df.iterrows():
-        G_cd_loja.add_edge(row['cd_atende'], row['loja_atendida'])
+        G_cd_loja.add_edge(row['cd_entrega'], row['loja_atendida'])
     
     print(f"✅ Grafo CD→Loja criado:")
     print(f"  • Nós: {G_cd_loja.number_of_nodes():,}")
@@ -366,18 +383,18 @@ def calcular_niveis_hierarquicos_cd_loja(G):
     """Calcula níveis hierárquicos para grafo CD→Loja usando BFS"""
     niveis = {}
     
-    # Encontrar CDs (nós com arestas de saída)
+    # Encontrar CDs (nós com arestas de saída - são os que entregam)
     cds_no_grafo = [n for n in G.nodes() if G.out_degree(n) > 0]
     
     if not cds_no_grafo:
         print("⚠️ Nenhum CD encontrado no grafo")
         return niveis, []
     
-    # Usar CDs como nível 0
+    # Usar CDs como nível 0 (são os que entregam diretamente)
     for cd in cds_no_grafo:
         niveis[cd] = 0
     
-    # BFS para calcular distâncias
+    # BFS para calcular distâncias (CDs entregam para lojas no nível 1)
     fila = deque([(cd, 0) for cd in cds_no_grafo])
     visitados = set(cds_no_grafo)
     
@@ -639,7 +656,7 @@ if tipo_grafo == "CD→CD":
 
 else:  # CD→Loja
     print(f"\n🏪 ANÁLISE CD→Loja:")
-    print(f"  • CDs que atendem lojas: {conexoes_cd_loja_df['cd_atende'].nunique() if len(conexoes_cd_loja_df) > 0 else 0:,}")
+    print(f"  • CDs que entregam em lojas: {conexoes_cd_loja_df['cd_entrega'].nunique() if len(conexoes_cd_loja_df) > 0 else 0:,}")
     print(f"  • Lojas atendidas: {conexoes_cd_loja_df['loja_atendida'].nunique() if len(conexoes_cd_loja_df) > 0 else 0:,}")
     print(f"  • Total de conexões CD→Loja: {len(conexoes_cd_loja_df):,}")
     
@@ -717,10 +734,10 @@ if tipo_grafo == "CD→CD":
 
 else:  # CD→Loja
     resultado_json["analise_cd_loja"] = {
-        "cds_unicos_atendem": int(conexoes_cd_loja_df['cd_atende'].nunique()) if len(conexoes_cd_loja_df) > 0 else 0,
+        "cds_unicos_entregam": int(conexoes_cd_loja_df['cd_entrega'].nunique()) if len(conexoes_cd_loja_df) > 0 else 0,
         "lojas_unicas_atendidas": int(conexoes_cd_loja_df['loja_atendida'].nunique()) if len(conexoes_cd_loja_df) > 0 else 0,
         "total_conexoes": int(len(conexoes_cd_loja_df)),
-        "top_cds_por_lojas_atendidas": conexoes_cd_loja_df['cd_atende'].value_counts().head(10).to_dict() if len(conexoes_cd_loja_df) > 0 else {}
+        "top_cds_por_lojas_atendidas": conexoes_cd_loja_df['cd_entrega'].value_counts().head(10).to_dict() if len(conexoes_cd_loja_df) > 0 else {}
     }
     
     if usar_grafo_cd_loja:
@@ -754,7 +771,7 @@ if tipo_grafo == "CD→CD":
 else:  # CD→Loja
     for _, row in conexoes_cd_loja_df.iterrows():
         resultado_json["conexoes"].append({
-            "origem": str(row['cd_atende']),
+            "origem": str(row['cd_entrega']),
             "destino": str(row['loja_atendida']),
             "tipo": "CD→Loja",
             "origem_tipo": "CD",
