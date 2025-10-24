@@ -116,7 +116,7 @@ print(f"📊 Registros rateados carregados: {vendas_rateadas_offline_df.count()}
 vendas_nao_rateadas_df = (
         spark.table("app_venda.vendafaturadanaorateada")
         .filter(F.col("QtMercadoria") >= 0)
-        # TODO - filtrar por day_partition, month_partition e year_partition baseado na data de hoje
+        # TODO - filtrar por day_partition, month_partition e year_partition baseado na data seguindo os outros filtros - de data inicio até hoje
         #.filter()
 )
 
