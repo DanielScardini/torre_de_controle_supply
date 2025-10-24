@@ -738,12 +738,41 @@ else:  # CD→Loja
             "distribuicao_niveis": dict(pd.Series(list(niveis_hierarquicos_cd_loja.values())).value_counts().sort_index())
         }
 
-# Adicionar dados detalhados dos nós (top 20 por grau)
-resultado_json["dados_detalhados"] = {
-    "top_nos_por_grau": nos_amostra.nlargest(20, 'grau_total').to_dict('records'),
-    "nos_em_ciclos": nos_amostra[nos_amostra['em_ciclo']].to_dict('records'),
-    "nos_fonte": nos_amostra[nos_amostra['nivel_hierarquico'] == 0].to_dict('records')
-}
+# Adicionar dados das conexões para desenhar o grafo
+resultado_json["conexoes"] = []
+
+if tipo_grafo == "CD→CD":
+    for _, row in conexoes_cd_cd_df.iterrows():
+        resultado_json["conexoes"].append({
+            "origem": str(row['cd_atende']),
+            "destino": str(row['cd_entrega']),
+            "tipo": "CD→CD",
+            "origem_tipo": "CD",
+            "destino_tipo": "CD"
+        })
+else:  # CD→Loja
+    for _, row in conexoes_cd_loja_df.iterrows():
+        resultado_json["conexoes"].append({
+            "origem": str(row['cd_atende']),
+            "destino": str(row['loja_atendida']),
+            "tipo": "CD→Loja",
+            "origem_tipo": "CD",
+            "destino_tipo": "Loja"
+        })
+
+# Adicionar dados dos nós com posições para visualização
+resultado_json["nos"] = []
+for _, row in nos_amostra.iterrows():
+    resultado_json["nos"].append({
+        "id": str(row['no']),
+        "tipo": "CD" if tipo_grafo == "CD→CD" else ("CD" if row['grau_saida'] > 0 else "Loja"),
+        "grau_total": int(row['grau_total']),
+        "grau_entrada": int(row['grau_entrada']),
+        "grau_saida": int(row['grau_saida']),
+        "nivel_hierarquico": int(row['nivel_hierarquico']),
+        "em_ciclo": bool(row['em_ciclo']),
+        "scc_size": int(row['scc_size'])
+    })
 
 # Salvar JSON
 json_path = f"/dbfs/tmp/malha_logistica_{tipo_grafo.lower().replace('→', '_')}.json"
@@ -751,17 +780,19 @@ with open(json_path, 'w', encoding='utf-8') as f:
     json.dump(resultado_json, f, indent=2, ensure_ascii=False)
 
 print(f"✅ Resultados salvos em: {json_path}")
-print(f"📊 Estrutura do JSON:")
+print(f"📊 Estrutura do JSON para Visualização:")
 print(f"  • Metadata: informações gerais")
 print(f"  • Estatísticas gerais: métricas do grafo")
 print(f"  • Análise específica: métricas por tipo de conexão")
 print(f"  • Complexidade: análise de ciclos e SCCs")
 print(f"  • Hierarquia: níveis e distribuição")
-print(f"  • Dados detalhados: top nós e nós especiais")
+print(f"  • Conexões: dados das arestas para desenhar setas direcionais")
+print(f"  • Nós: dados dos vértices com propriedades para visualização")
 
 # Mostrar resumo do JSON salvo
 print(f"\n📋 RESUMO DO JSON SALVO:")
 print(f"  • Tamanho estimado: ~{len(json.dumps(resultado_json)):,} caracteres")
-print(f"  • Nós detalhados: {len(resultado_json['dados_detalhados']['top_nos_por_grau'])}")
-print(f"  • Nós em ciclos: {len(resultado_json['dados_detalhados']['nos_em_ciclos'])}")
-print(f"  • Nós fonte: {len(resultado_json['dados_detalhados']['nos_fonte'])}")
+print(f"  • Total de conexões: {len(resultado_json['conexoes'])}")
+print(f"  • Total de nós: {len(resultado_json['nos'])}")
+print(f"  • Nós em ciclos: {sum(1 for no in resultado_json['nos'] if no['em_ciclo'])}")
+print(f"  • Nós fonte (nível 0): {sum(1 for no in resultado_json['nos'] if no['nivel_hierarquico'] == 0)}")
